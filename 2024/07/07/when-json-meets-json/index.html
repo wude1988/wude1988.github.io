@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang=en>
+<head>
+    <!-- so meta -->
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="HandheldFriendly" content="True">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=5" />
+    <meta name="description" content="前言最近学习 orange 师傅的 《從 2013 到 2023: Web Security 十年之進化與趨勢!》，里面讲到了一个利用不同语言的 json 解析的差异实现 rce 的漏洞：Remote Code Execution in CouchDB 。虽然这个漏洞不熟悉，平时接触 java 的环境多一点，所以在此基础上想到了一个 java 环境下的可能存在的场景。 Json in Java在">
+<meta property="og:type" content="article">
+<meta property="og:title" content="when json meets json">
+<meta property="og:url" content="http://example.com/2024/07/07/when-json-meets-json/">
+<meta property="og:site_name" content="wude">
+<meta property="og:description" content="前言最近学习 orange 师傅的 《從 2013 到 2023: Web Security 十年之進化與趨勢!》，里面讲到了一个利用不同语言的 json 解析的差异实现 rce 的漏洞：Remote Code Execution in CouchDB 。虽然这个漏洞不熟悉，平时接触 java 的环境多一点，所以在此基础上想到了一个 java 环境下的可能存在的场景。 Json in Java在">
+<meta property="og:locale" content="en_US">
+<meta property="og:image" content="http://example.com/2024/07/07/when-json-meets-json/image-20240707191526397.png">
+<meta property="og:image" content="http://example.com/2024/07/07/when-json-meets-json/image-20240707191603052.png">
+<meta property="og:image" content="http://example.com/2024/07/07/when-json-meets-json/image-20240707191617059.png">
+<meta property="article:published_time" content="2024-07-07T11:15:03.000Z">
+<meta property="article:modified_time" content="2024-07-07T11:16:39.227Z">
+<meta property="article:author" content="wude">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="http://example.com/2024/07/07/when-json-meets-json/image-20240707191526397.png">
+    
+    
+      
+        
+          <link rel="shortcut icon" href="/images/favicon.ico">
+        
+      
+      
+        
+          <link rel="icon" type="image/png" href="/images/favicon-192x192.png" sizes="192x192">
+        
+      
+      
+        
+          <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon.png">
+        
+      
+    
+    <!-- title -->
+    <title>when json meets json</title>
+    <!-- async scripts -->
+    <!-- Google Analytics -->
+
+
+    <!-- Umami Analytics -->
+
+
+    <!-- styles -->
+    
+<link rel="stylesheet" href="/css/style.css">
+
+    <!-- persian styles -->
+    
+    <!-- rss -->
+    
+    
+	<!-- mathjax -->
+	
+<meta name="generator" content="Hexo 7.2.0"></head>
+
+<body class="max-width mx-auto px3 ltr">
+    
+      <div id="header-post">
+  <a id="menu-icon" href="#" aria-label="Menu"><i class="fa-solid fa-bars fa-lg"></i></a>
+  <a id="menu-icon-tablet" href="#" aria-label="Menu"><i class="fa-solid fa-bars fa-lg"></i></a>
+  <a id="top-icon-tablet" href="#" aria-label="Top" onclick="$('html, body').animate({ scrollTop: 0 }, 'fast');" style="display:none;"><i class="fa-solid fa-chevron-up fa-lg"></i></a>
+  <span id="menu">
+    <span id="nav">
+      <ul>
+        <!--
+       --><li><a href="/">Home</a></li><!--
+     --><!--
+       --><li><a href="/about/">About</a></li><!--
+     --><!--
+       --><li><a href="/archives/">Writing</a></li><!--
+     -->
+      </ul>
+    </span>
+    <br/>
+    <span id="actions">
+      <ul>
+        
+        <li><a class="icon" aria-label="Previous post" href="/2024/07/07/Xalan-J-XSLT%E6%95%B4%E6%95%B0%E6%88%AA%E6%96%AD-cve-2022-34169/"><i class="fa-solid fa-chevron-left" aria-hidden="true" onmouseover="$('#i-prev').toggle();" onmouseout="$('#i-prev').toggle();"></i></a></li>
+        
+        
+        <li><a class="icon" aria-label="Next post" href="/2024/07/07/dump-%E6%B5%8F%E8%A7%88%E5%99%A8%E6%95%B0%E6%8D%AE/"><i class="fa-solid fa-chevron-right" aria-hidden="true" onmouseover="$('#i-next').toggle();" onmouseout="$('#i-next').toggle();"></i></a></li>
+        
+        <li><a class="icon" aria-label="Back to top" href="#" onclick="$('html, body').animate({ scrollTop: 0 }, 'fast');"><i class="fa-solid fa-chevron-up" aria-hidden="true" onmouseover="$('#i-top').toggle();" onmouseout="$('#i-top').toggle();"></i></a></li>
+        <li><a class="icon" aria-label="Share post" href="#"><i class="fa-solid fa-share-alt" aria-hidden="true" onmouseover="$('#i-share').toggle();" onmouseout="$('#i-share').toggle();" onclick="$('#share').toggle();return false;"></i></a></li>
+      </ul>
+      <span id="i-prev" class="info" style="display:none;">Previous post</span>
+      <span id="i-next" class="info" style="display:none;">Next post</span>
+      <span id="i-top" class="info" style="display:none;">Back to top</span>
+      <span id="i-share" class="info" style="display:none;">Share post</span>
+    </span>
+    <br/>
+    <div id="share" style="display: none">
+      <ul>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://www.facebook.com/sharer.php?u=http://example.com/2024/07/07/when-json-meets-json/"><i class="fab fa-facebook " aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="https://twitter.com/share?url=http://example.com/2024/07/07/when-json-meets-json/&text=when json meets json"><i class="fab fa-twitter " aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://www.linkedin.com/shareArticle?url=http://example.com/2024/07/07/when-json-meets-json/&title=when json meets json"><i class="fab fa-linkedin " aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="https://pinterest.com/pin/create/bookmarklet/?url=http://example.com/2024/07/07/when-json-meets-json/&is_video=false&description=when json meets json"><i class="fab fa-pinterest " aria-hidden="true"></i></a></li>
+  <li><a class="icon" href="mailto:?subject=when json meets json&body=Check out this article: http://example.com/2024/07/07/when-json-meets-json/"><i class="fa-solid fa-envelope " aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="https://getpocket.com/save?url=http://example.com/2024/07/07/when-json-meets-json/&title=when json meets json"><i class="fab fa-get-pocket " aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://reddit.com/submit?url=http://example.com/2024/07/07/when-json-meets-json/&title=when json meets json"><i class="fab fa-reddit " aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://www.stumbleupon.com/submit?url=http://example.com/2024/07/07/when-json-meets-json/&title=when json meets json"><i class="fab fa-stumbleupon " aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://digg.com/submit?url=http://example.com/2024/07/07/when-json-meets-json/&title=when json meets json"><i class="fab fa-digg " aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://www.tumblr.com/share/link?url=http://example.com/2024/07/07/when-json-meets-json/&name=when json meets json&description="><i class="fab fa-tumblr " aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="https://news.ycombinator.com/submitlink?u=http://example.com/2024/07/07/when-json-meets-json/&t=when json meets json"><i class="fab fa-hacker-news " aria-hidden="true"></i></a></li>
+</ul>
+
+    </div>
+    
+    
+      <div id="toc">
+        <ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%89%8D%E8%A8%80"><span class="toc-number">1.</span> <span class="toc-text">前言</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Json-in-Java"><span class="toc-number">2.</span> <span class="toc-text">Json in Java</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%9C%BA%E6%99%AF"><span class="toc-number">3.</span> <span class="toc-text">场景</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%8F%82%E8%80%83"><span class="toc-number">4.</span> <span class="toc-text">参考</span></a></li></ol>
+      </div>
+    
+  </span>
+</div>
+
+    
+    <div class="content index py4 ">
+        
+        <article class="post h-entry" itemscope itemtype="http://schema.org/BlogPosting">
+  <header>
+    
+    <h1 class="posttitle p-name" itemprop="name headline">
+        when json meets json
+    </h1>
+
+
+
+    <div class="meta">
+      <span class="author p-author h-card" itemprop="author" itemscope itemtype="http://schema.org/Person">
+        <span class="p-name" itemprop="name">wude</span>
+      </span>
+      
+    <div class="postdate">
+      
+        <time datetime="2024-07-07T11:15:03.000Z" class="dt-published" itemprop="datePublished">2024-07-07</time>
+        
+      
+    </div>
+
+
+      
+
+      
+
+    </div>
+  </header>
+  
+
+  <div class="content e-content" itemprop="articleBody">
+    <h2 id="前言"><a href="#前言" class="headerlink" title="前言"></a>前言</h2><p>最近学习 orange 师傅的 《<a target="_blank" rel="noopener" href="https://blog.orange.tw/2023/08/2023-webconf-the-evolution-of-web-security.html">從 2013 到 2023: Web Security 十年之進化與趨勢!</a>》，里面讲到了一个利用不同语言的 json 解析的差异实现 rce 的漏洞：<a target="_blank" rel="noopener" href="https://justi.cz/security/2017/11/14/couchdb-rce-npm.html">Remote Code Execution in CouchDB</a> 。虽然这个漏洞不熟悉，平时接触 java 的环境多一点，所以在此基础上想到了一个 java 环境下的可能存在的场景。</p>
+<h2 id="Json-in-Java"><a href="#Json-in-Java" class="headerlink" title="Json in Java"></a>Json in Java</h2><p>在 java 中，最常见的 json 的解析器差不多就是 jackson 和 fastjson 了，其中 jackson 是 spring boot 自带的，在参数绑定的时候就是用其完成反序列化的动作，而 fastjson 在国内使用比较多。</p>
+<p>jackson 和 fastjson 在处理同样一个 json 字符串的时候有没有差异呢？</p>
+<p>做个实验，新建一个 Person 类，有两个 field，分别是 user 和 role，正常情况下得到的结果是一样的：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">void</span> <span class="title function_">main</span><span class="params">(String[] args)</span> &#123;</span><br><span class="line">        <span class="type">String</span> <span class="variable">s</span> <span class="operator">=</span> <span class="string">&quot;&#123;\&quot;user\&quot;:\&quot;alice\&quot;, \&quot;role\&quot;:\&quot;admin\&quot;&#125;&quot;</span>;</span><br><span class="line">        <span class="type">ObjectMapper</span> <span class="variable">objectMapper</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">ObjectMapper</span>();</span><br><span class="line">        <span class="keyword">try</span> &#123;</span><br><span class="line">            <span class="type">Person</span> <span class="variable">person1</span> <span class="operator">=</span> objectMapper.readValue(s, Person.class);</span><br><span class="line">            System.out.println(<span class="string">&quot;jackson: &quot;</span> + person1.user + <span class="string">&quot; is &quot;</span> + person1.role);</span><br><span class="line">            <span class="type">Person</span> <span class="variable">person2</span> <span class="operator">=</span> JSONObject.parseObject(s, Person.class);</span><br><span class="line">            System.out.println(<span class="string">&quot;fastjson: &quot;</span> + person2.user + <span class="string">&quot; is &quot;</span> + person2.role);</span><br><span class="line">        &#125;<span class="keyword">catch</span> (Exception e)&#123;</span><br><span class="line">            e.printStackTrace();</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br></pre></td></tr></table></figure>
+
+<p><img src="/2024/07/07/when-json-meets-json/image-20240707191526397.png" alt="image-20240707191526397"></p>
+<p>如果 key 重复了呢？这两个表现会有什么区别？这里用 3 个重复的 key 试验：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">void</span> <span class="title function_">main</span><span class="params">(String[] args)</span> &#123;</span><br><span class="line">        <span class="type">String</span> <span class="variable">s</span> <span class="operator">=</span> <span class="string">&quot;&#123;\&quot;user\&quot;:\&quot;alice\&quot;, \&quot;role\&quot;:\&quot;guest\&quot;, \&quot;role\&quot;:\&quot;any\&quot;, \&quot;role\&quot;:\&quot;admin\&quot;&#125;&quot;</span>;</span><br><span class="line">        <span class="type">ObjectMapper</span> <span class="variable">objectMapper</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">ObjectMapper</span>();</span><br><span class="line">        <span class="keyword">try</span> &#123;</span><br><span class="line">            <span class="type">Person</span> <span class="variable">person1</span> <span class="operator">=</span> objectMapper.readValue(s, Person.class);</span><br><span class="line">            System.out.println(<span class="string">&quot;jackson: &quot;</span> + person1.user + <span class="string">&quot; is &quot;</span> + person1.role);</span><br><span class="line">            <span class="type">Person</span> <span class="variable">person2</span> <span class="operator">=</span> JSONObject.parseObject(s, Person.class);</span><br><span class="line">            System.out.println(<span class="string">&quot;fastjson: &quot;</span> + person2.user + <span class="string">&quot; is &quot;</span> + person2.role);</span><br><span class="line">        &#125;<span class="keyword">catch</span> (Exception e)&#123;</span><br><span class="line">            e.printStackTrace();</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br></pre></td></tr></table></figure>
+
+<p><img src="/2024/07/07/when-json-meets-json/image-20240707191603052.png" alt="image-20240707191603052"></p>
+<p>可以看到当重复时，jackson 会取最后一个 key，而 fastjson 会取第一个 key。</p>
+<h2 id="场景"><a href="#场景" class="headerlink" title="场景"></a>场景</h2><p>fastjson 和 jackson 的这种差异性会不会造成什么危害？前面说到 spring boot 的默认参数反序列化器就是 jackson ，而国内的很多业务场景都会使用 fastjson 做解析，如果能构建一条 fastjson 到 jackson 的链路，就有可能出现问题。</p>
+<p>新建一个 spring boot 的 demo，新建一个 controller ：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">@PostMapping(&quot;/json&quot;)</span></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">json</span><span class="params">(<span class="meta">@RequestBody</span> Person person)</span>&#123;</span><br><span class="line">    <span class="type">String</span> <span class="variable">s</span> <span class="operator">=</span>  <span class="string">&quot;service: &quot;</span> + person.user + <span class="string">&quot; is &quot;</span> + person.role;</span><br><span class="line">    System.out.println(s);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>新建一个 filter ：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">doFilter</span><span class="params">(ServletRequest servletRequest, ServletResponse servletResponse, FilterChain filterChain)</span> <span class="keyword">throws</span> IOException, ServletException &#123;</span><br><span class="line">    <span class="type">HttpServletRequest</span> <span class="variable">httpServletRequest</span> <span class="operator">=</span> (HttpServletRequest) servletRequest;</span><br><span class="line"></span><br><span class="line">    <span class="type">ContentCachingRequestWrapper</span> <span class="variable">contentCachingRequestWrapper</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">ContentCachingRequestWrapper</span>(httpServletRequest);</span><br><span class="line">    filterChain.doFilter(contentCachingRequestWrapper, servletResponse);</span><br><span class="line"></span><br><span class="line">    <span class="type">String</span> <span class="variable">body</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">String</span>(contentCachingRequestWrapper.getContentAsByteArray(), StandardCharsets.UTF_8);</span><br><span class="line">    <span class="type">Person</span> <span class="variable">p</span> <span class="operator">=</span> JSONObject.parseObject(body, Person.class);</span><br><span class="line">    System.out.println(<span class="string">&quot;filter: &quot;</span> + p.user + <span class="string">&quot; is &quot;</span> + p.role);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>结果符合预期：</p>
+<p><img src="/2024/07/07/when-json-meets-json/image-20240707191617059.png" alt="image-20240707191617059"></p>
+<p>如果在 filter 这里做一些校验，例如校验 <code>alice</code> 是否拥有对应的权限，则可以通过这个方式绕过，而后端仍然取到是 <code>admin</code> 角色。</p>
+<p>这里只是一个简单的例子，在实际中应该不乏类似的场景，至于 json 解析的其他差异有兴趣的还是可以继续研究。</p>
+<h2 id="参考"><a href="#参考" class="headerlink" title="参考"></a>参考</h2><p><a target="_blank" rel="noopener" href="https://blog.orange.tw/2023/08/2023-webconf-the-evolution-of-web-security.html">https://blog.orange.tw/2023/08/2023-webconf-the-evolution-of-web-security.html</a></p>
+<p><a target="_blank" rel="noopener" href="https://justi.cz/security/2017/11/14/couchdb-rce-npm.html">https://justi.cz/security/2017/11/14/couchdb-rce-npm.html</a></p>
+
+  </div>
+</article>
+
+
+
+        
+          <div id="footer-post-container">
+  <div id="footer-post">
+
+    <div id="nav-footer" style="display: none">
+      <ul>
+        
+          <li><a href="/">Home</a></li>
+        
+          <li><a href="/about/">About</a></li>
+        
+          <li><a href="/archives/">Writing</a></li>
+        
+      </ul>
+    </div>
+
+    
+    
+      <div id="toc-footer" style="display: none">
+        <ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%89%8D%E8%A8%80"><span class="toc-number">1.</span> <span class="toc-text">前言</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Json-in-Java"><span class="toc-number">2.</span> <span class="toc-text">Json in Java</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%9C%BA%E6%99%AF"><span class="toc-number">3.</span> <span class="toc-text">场景</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%8F%82%E8%80%83"><span class="toc-number">4.</span> <span class="toc-text">参考</span></a></li></ol>
+      </div>
+    
+
+    <div id="share-footer" style="display: none">
+      <ul>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://www.facebook.com/sharer.php?u=http://example.com/2024/07/07/when-json-meets-json/"><i class="fab fa-facebook fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="https://twitter.com/share?url=http://example.com/2024/07/07/when-json-meets-json/&text=when json meets json"><i class="fab fa-twitter fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://www.linkedin.com/shareArticle?url=http://example.com/2024/07/07/when-json-meets-json/&title=when json meets json"><i class="fab fa-linkedin fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="https://pinterest.com/pin/create/bookmarklet/?url=http://example.com/2024/07/07/when-json-meets-json/&is_video=false&description=when json meets json"><i class="fab fa-pinterest fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" href="mailto:?subject=when json meets json&body=Check out this article: http://example.com/2024/07/07/when-json-meets-json/"><i class="fa-solid fa-envelope fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="https://getpocket.com/save?url=http://example.com/2024/07/07/when-json-meets-json/&title=when json meets json"><i class="fab fa-get-pocket fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://reddit.com/submit?url=http://example.com/2024/07/07/when-json-meets-json/&title=when json meets json"><i class="fab fa-reddit fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://www.stumbleupon.com/submit?url=http://example.com/2024/07/07/when-json-meets-json/&title=when json meets json"><i class="fab fa-stumbleupon fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://digg.com/submit?url=http://example.com/2024/07/07/when-json-meets-json/&title=when json meets json"><i class="fab fa-digg fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://www.tumblr.com/share/link?url=http://example.com/2024/07/07/when-json-meets-json/&name=when json meets json&description="><i class="fab fa-tumblr fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="https://news.ycombinator.com/submitlink?u=http://example.com/2024/07/07/when-json-meets-json/&t=when json meets json"><i class="fab fa-hacker-news fa-lg" aria-hidden="true"></i></a></li>
+</ul>
+
+    </div>
+
+    <div id="actions-footer">
+        <a id="menu" class="icon" href="#" onclick="$('#nav-footer').toggle();return false;"><i class="fa-solid fa-bars fa-lg" aria-hidden="true"></i> Menu</a>
+        
+          <a id="toc" class="icon" href="#" onclick="$('#toc-footer').toggle();return false;"><i class="fa-solid fa-list fa-lg" aria-hidden="true"></i> TOC</a>
+        
+        <a id="share" class="icon" href="#" onclick="$('#share-footer').toggle();return false;"><i class="fa-solid fa-share-alt fa-lg" aria-hidden="true"></i> Share</a>
+        <a id="top" style="display:none" class="icon" href="#" onclick="$('html, body').animate({ scrollTop: 0 }, 'fast');"><i class="fa-solid fa-chevron-up fa-lg" aria-hidden="true"></i> Top</a>
+    </div>
+
+  </div>
+</div>
+
+        
+        <footer id="footer">
+  <div class="footer-left">
+    Copyright &copy;
+    
+    
+    2024
+    wude
+  </div>
+  <div class="footer-right">
+    <nav>
+      <ul>
+        <!--
+       --><li><a href="/">Home</a></li><!--
+     --><!--
+       --><li><a href="/about/">About</a></li><!--
+     --><!--
+       --><li><a href="/archives/">Writing</a></li><!--
+     -->
+      </ul>
+    </nav>
+  </div>
+</footer>
+
+    </div>
+    <!-- styles -->
+
+
+
+  <link rel="preload" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" crossorigin="anonymous" onload="this.onload=null;this.rel='stylesheet'"/>
+
+
+    <!-- jquery -->
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js" crossorigin="anonymous"></script>
+
+
+
+
+<!-- clipboard -->
+
+  
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/clipboard.js/2.0.7/clipboard.min.js" crossorigin="anonymous"></script>
+  
+  <script type="text/javascript">
+  $(function() {
+    // copy-btn HTML
+    var btn = "<span class=\"btn-copy tooltipped tooltipped-sw\" aria-label=\"Copy to clipboard!\">";
+    btn += '<i class="fa-regular fa-clone"></i>';
+    btn += '</span>';
+    // mount it!
+    $(".highlight table").before(btn);
+    var clip = new ClipboardJS('.btn-copy', {
+      text: function(trigger) {
+        return Array.from(trigger.nextElementSibling.querySelectorAll('.code')).reduce((str,it)=>str+it.innerText+'\n','')
+      }
+    });
+    clip.on('success', function(e) {
+      e.trigger.setAttribute('aria-label', "Copied!");
+      e.clearSelection();
+    })
+  })
+  </script>
+
+
+<script src="/js/main.js"></script>
+
+<!-- search -->
+
+<!-- Baidu Analytics -->
+
+<!-- Cloudflare Analytics -->
+
+<!-- Disqus Comments -->
+
+<!-- utterances Comments -->
+
+</body>
+</html>
