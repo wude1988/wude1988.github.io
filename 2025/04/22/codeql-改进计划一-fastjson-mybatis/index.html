@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang=en>
+<head>
+    <!-- so meta -->
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="HandheldFriendly" content="True">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=5" />
+    <meta name="description" content="背景截止目前 codeql 的版本，官方对 fastjson 还没有很好的支持，反倒是一堆 parseObject 的反序列化误报，而实际上以现在的 fastjson 使用情况来看，直接 parse 就能利用几乎不可能了。当然在这里不关心反序列化的问题，主要是想解决 fastjson 在整个污染的流中会导致链路断了的情况，看个例子： 123String json_str &#x3D; source;Obje">
+<meta property="og:type" content="article">
+<meta property="og:title" content="codeql 改进计划一(fastjson&amp;mybatis)">
+<meta property="og:url" content="http://example.com/2025/04/22/codeql-%E6%94%B9%E8%BF%9B%E8%AE%A1%E5%88%92%E4%B8%80-fastjson-mybatis/">
+<meta property="og:site_name" content="wude">
+<meta property="og:description" content="背景截止目前 codeql 的版本，官方对 fastjson 还没有很好的支持，反倒是一堆 parseObject 的反序列化误报，而实际上以现在的 fastjson 使用情况来看，直接 parse 就能利用几乎不可能了。当然在这里不关心反序列化的问题，主要是想解决 fastjson 在整个污染的流中会导致链路断了的情况，看个例子： 123String json_str &#x3D; source;Obje">
+<meta property="og:locale" content="en_US">
+<meta property="article:published_time" content="2025-04-22T07:07:14.000Z">
+<meta property="article:modified_time" content="2025-04-22T07:16:39.513Z">
+<meta property="article:author" content="wude">
+<meta name="twitter:card" content="summary">
+    
+    
+      
+        
+          <link rel="shortcut icon" href="/images/favicon.ico">
+        
+      
+      
+        
+          <link rel="icon" type="image/png" href="/images/favicon-192x192.png" sizes="192x192">
+        
+      
+      
+        
+          <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon.png">
+        
+      
+    
+    <!-- title -->
+    <title>codeql 改进计划一(fastjson&amp;mybatis)</title>
+    <!-- async scripts -->
+    <!-- Google Analytics -->
+
+
+    <!-- Umami Analytics -->
+
+
+    <!-- styles -->
+    
+<link rel="stylesheet" href="/css/style.css">
+
+    <!-- persian styles -->
+    
+    <!-- rss -->
+    
+    
+	<!-- mathjax -->
+	
+<meta name="generator" content="Hexo 7.2.0"></head>
+
+<body class="max-width mx-auto px3 ltr">
+    
+      <div id="header-post">
+  <a id="menu-icon" href="#" aria-label="Menu"><i class="fa-solid fa-bars fa-lg"></i></a>
+  <a id="menu-icon-tablet" href="#" aria-label="Menu"><i class="fa-solid fa-bars fa-lg"></i></a>
+  <a id="top-icon-tablet" href="#" aria-label="Top" onclick="$('html, body').animate({ scrollTop: 0 }, 'fast');" style="display:none;"><i class="fa-solid fa-chevron-up fa-lg"></i></a>
+  <span id="menu">
+    <span id="nav">
+      <ul>
+        <!--
+       --><li><a href="/">Home</a></li><!--
+     --><!--
+       --><li><a href="/about/">About</a></li><!--
+     --><!--
+       --><li><a href="/archives/">Writing</a></li><!--
+     -->
+      </ul>
+    </span>
+    <br/>
+    <span id="actions">
+      <ul>
+        
+        
+        <li><a class="icon" aria-label="Next post" href="/2025/04/22/AviatorScript-%E8%84%9A%E6%9C%AC%E8%AF%AD%E8%A8%80%E5%88%A9%E7%94%A8%E6%96%B9%E5%BC%8F%E8%A7%A3%E6%9E%90/"><i class="fa-solid fa-chevron-right" aria-hidden="true" onmouseover="$('#i-next').toggle();" onmouseout="$('#i-next').toggle();"></i></a></li>
+        
+        <li><a class="icon" aria-label="Back to top" href="#" onclick="$('html, body').animate({ scrollTop: 0 }, 'fast');"><i class="fa-solid fa-chevron-up" aria-hidden="true" onmouseover="$('#i-top').toggle();" onmouseout="$('#i-top').toggle();"></i></a></li>
+        <li><a class="icon" aria-label="Share post" href="#"><i class="fa-solid fa-share-alt" aria-hidden="true" onmouseover="$('#i-share').toggle();" onmouseout="$('#i-share').toggle();" onclick="$('#share').toggle();return false;"></i></a></li>
+      </ul>
+      <span id="i-prev" class="info" style="display:none;">Previous post</span>
+      <span id="i-next" class="info" style="display:none;">Next post</span>
+      <span id="i-top" class="info" style="display:none;">Back to top</span>
+      <span id="i-share" class="info" style="display:none;">Share post</span>
+    </span>
+    <br/>
+    <div id="share" style="display: none">
+      <ul>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://www.facebook.com/sharer.php?u=http://example.com/2025/04/22/codeql-%E6%94%B9%E8%BF%9B%E8%AE%A1%E5%88%92%E4%B8%80-fastjson-mybatis/"><i class="fab fa-facebook " aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="https://twitter.com/share?url=http://example.com/2025/04/22/codeql-%E6%94%B9%E8%BF%9B%E8%AE%A1%E5%88%92%E4%B8%80-fastjson-mybatis/&text=codeql 改进计划一(fastjson&amp;mybatis)"><i class="fab fa-twitter " aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://www.linkedin.com/shareArticle?url=http://example.com/2025/04/22/codeql-%E6%94%B9%E8%BF%9B%E8%AE%A1%E5%88%92%E4%B8%80-fastjson-mybatis/&title=codeql 改进计划一(fastjson&amp;mybatis)"><i class="fab fa-linkedin " aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="https://pinterest.com/pin/create/bookmarklet/?url=http://example.com/2025/04/22/codeql-%E6%94%B9%E8%BF%9B%E8%AE%A1%E5%88%92%E4%B8%80-fastjson-mybatis/&is_video=false&description=codeql 改进计划一(fastjson&amp;mybatis)"><i class="fab fa-pinterest " aria-hidden="true"></i></a></li>
+  <li><a class="icon" href="mailto:?subject=codeql 改进计划一(fastjson&amp;mybatis)&body=Check out this article: http://example.com/2025/04/22/codeql-%E6%94%B9%E8%BF%9B%E8%AE%A1%E5%88%92%E4%B8%80-fastjson-mybatis/"><i class="fa-solid fa-envelope " aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="https://getpocket.com/save?url=http://example.com/2025/04/22/codeql-%E6%94%B9%E8%BF%9B%E8%AE%A1%E5%88%92%E4%B8%80-fastjson-mybatis/&title=codeql 改进计划一(fastjson&amp;mybatis)"><i class="fab fa-get-pocket " aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://reddit.com/submit?url=http://example.com/2025/04/22/codeql-%E6%94%B9%E8%BF%9B%E8%AE%A1%E5%88%92%E4%B8%80-fastjson-mybatis/&title=codeql 改进计划一(fastjson&amp;mybatis)"><i class="fab fa-reddit " aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://www.stumbleupon.com/submit?url=http://example.com/2025/04/22/codeql-%E6%94%B9%E8%BF%9B%E8%AE%A1%E5%88%92%E4%B8%80-fastjson-mybatis/&title=codeql 改进计划一(fastjson&amp;mybatis)"><i class="fab fa-stumbleupon " aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://digg.com/submit?url=http://example.com/2025/04/22/codeql-%E6%94%B9%E8%BF%9B%E8%AE%A1%E5%88%92%E4%B8%80-fastjson-mybatis/&title=codeql 改进计划一(fastjson&amp;mybatis)"><i class="fab fa-digg " aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://www.tumblr.com/share/link?url=http://example.com/2025/04/22/codeql-%E6%94%B9%E8%BF%9B%E8%AE%A1%E5%88%92%E4%B8%80-fastjson-mybatis/&name=codeql 改进计划一(fastjson&amp;mybatis)&description="><i class="fab fa-tumblr " aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="https://news.ycombinator.com/submitlink?u=http://example.com/2025/04/22/codeql-%E6%94%B9%E8%BF%9B%E8%AE%A1%E5%88%92%E4%B8%80-fastjson-mybatis/&t=codeql 改进计划一(fastjson&amp;mybatis)"><i class="fab fa-hacker-news " aria-hidden="true"></i></a></li>
+</ul>
+
+    </div>
+    
+    
+      <div id="toc">
+        <ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E8%83%8C%E6%99%AF"><span class="toc-number">1.</span> <span class="toc-text">背景</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#fastjson"><span class="toc-number">2.</span> <span class="toc-text">fastjson</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#mybatis"><span class="toc-number">3.</span> <span class="toc-text">mybatis</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#reference"><span class="toc-number">4.</span> <span class="toc-text">reference</span></a></li></ol>
+      </div>
+    
+  </span>
+</div>
+
+    
+    <div class="content index py4 ">
+        
+        <article class="post h-entry" itemscope itemtype="http://schema.org/BlogPosting">
+  <header>
+    
+    <h1 class="posttitle p-name" itemprop="name headline">
+        codeql 改进计划一(fastjson&amp;mybatis)
+    </h1>
+
+
+
+    <div class="meta">
+      <span class="author p-author h-card" itemprop="author" itemscope itemtype="http://schema.org/Person">
+        <span class="p-name" itemprop="name">wude</span>
+      </span>
+      
+    <div class="postdate">
+      
+        <time datetime="2025-04-22T07:07:14.000Z" class="dt-published" itemprop="datePublished">2025-04-22</time>
+        
+      
+    </div>
+
+
+      
+
+      
+
+    </div>
+  </header>
+  
+
+  <div class="content e-content" itemprop="articleBody">
+    <h2 id="背景"><a href="#背景" class="headerlink" title="背景"></a>背景</h2><p>截止目前 codeql 的版本，官方对 fastjson 还没有很好的支持，反倒是一堆 parseObject 的反序列化误报，而实际上以现在的 fastjson 使用情况来看，直接 parse 就能利用几乎不可能了。当然在这里不关心反序列化的问题，主要是想解决 fastjson 在整个污染的流中会导致链路断了的情况，看个例子：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">String json_str = source;</span><br><span class="line">Object o = JSON.parseObject(json_str);</span><br><span class="line">sink(o);</span><br></pre></td></tr></table></figure>
+<p>这个简化的处理逻辑实际上在国内很常用，至少在我碰到的项目里没有不使用 fastjson 的，然而 codeql 不能正确识别这个污染流，没法将 source 和 sink 连接起来，自然会导致很多漏报。</p>
+<p>另一个问题是在处理 mybatis 相关污染流的时候发现的，也是 mybatis sqli 中会存在的漏报情况，看个例子：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">String s = source;</span><br><span class="line">Object o = new Object();</span><br><span class="line">o.setS(s);</span><br><span class="line">mapper.insert(o);</span><br></pre></td></tr></table></figure>
+<p>这种情况下，假设 mybatis 的 xml 文件存在 ${}，codeql 也不会有 sqli 的结果。</p>
+<h2 id="fastjson"><a href="#fastjson" class="headerlink" title="fastjson"></a>fastjson</h2><p>为什么 fastjson 会造成断路？这是 codeql，或者说其他别的静态代码分析工具的工作逻辑造成的，codeql 不会去分析依赖里面的污染和调用关系，官方说明如果想要分析 fastjson，那就针对 fastjson 建库。</p>
+<p>根据这个原理，fastjson 是三方依赖所以会断路，意味着其他三方依赖同样会出现这个问题，甚至 jdk 自身的方法也会有这个问题，如果说 fastjson 是国内生态 codeql 没照顾到，其他一些通用的 apache 库和 jdk，肯定需要进行处理的，codeql 对这些是如何做的呢？直接搜几个常用的库的类名，会发现在 lib 里面有很多的 *.model.yml 文件，定义了不同的 source，sink 和 summary 规则，具体的规则编写参考官方：<a target="_blank" rel="noopener" href="https://codeql.github.com/docs/codeql-language-guides/customizing-library-models-for-java-and-kotlin/">https://codeql.github.com/docs/codeql-language-guides/customizing-library-models-for-java-and-kotlin/</a></p>
+<p>根据这个文档，结合 parse 和 parseObject 存在很多重载方法，需要添加 summaryModel，并且可以将方法签名置空以匹配所有，如下：</p>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">extensions:</span></span><br><span class="line">  <span class="bullet">-</span> <span class="attr">addsTo:</span></span><br><span class="line">      <span class="attr">pack:</span> <span class="string">codeql/java-all</span></span><br><span class="line">      <span class="attr">extensible:</span> <span class="string">summaryModel</span></span><br><span class="line">    <span class="attr">data:</span></span><br><span class="line">      <span class="bullet">-</span> [<span class="string">&quot;com.alibaba.fastjson&quot;</span>, <span class="string">&quot;JSON&quot;</span>, <span class="literal">True</span>, <span class="string">&quot;parseObject&quot;</span>, <span class="string">&quot;&quot;</span>, <span class="string">&quot;&quot;</span>, <span class="string">&quot;Argument[0]&quot;</span>, <span class="string">&quot;ReturnValue&quot;</span>, <span class="string">&quot;taint&quot;</span>, <span class="string">&quot;manual&quot;</span>]</span><br><span class="line">      <span class="bullet">-</span> [<span class="string">&quot;com.alibaba.fastjson&quot;</span>, <span class="string">&quot;JSON&quot;</span>, <span class="literal">True</span>, <span class="string">&quot;parse&quot;</span>, <span class="string">&quot;&quot;</span>, <span class="string">&quot;&quot;</span>, <span class="string">&quot;Argument[0]&quot;</span>, <span class="string">&quot;ReturnValue&quot;</span>, <span class="string">&quot;taint&quot;</span>, <span class="string">&quot;manual&quot;</span>]</span><br></pre></td></tr></table></figure>
+<p>可以将对应规则添加到已有 yml 也可以新建一个 yml。</p>
+<p>添加规则之后再测试文章开头的例子会发现已经可以正常传播了，但是在下面的例子又不行了：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">String json_str = source;</span><br><span class="line">Object o = JSON.parseObject(json_str);</span><br><span class="line">sink(o.f);</span><br></pre></td></tr></table></figure>
+<p>也就是说对象 o 能正常被 source 污染到，而 o 的变量 f 却没有污染，这个该如何解释？</p>
+<p>看起来是 codeql 仅认为 o 是污染的，而里面的 f 是否被污染没有明确的数据流定义，所以不能被认为也是污染的。这个场景似乎也合理，f 可能在其他地方使用别的方式进行赋值。</p>
+<p>所以该如何处理? 我想起了两个更常见的依赖库，jackson 和 gson，用这两个关键字搜了一下，发现不止在 yml 里面有规则定义，qll 库里也有很多规则，这里 gson 的会简单一点，所以以 gson 为例，主要有 3 个相关的：Gson.qll, GsonSerializability.qll, UnsafeDeserializationQuery.qll，Gson 和 UnsafeDeserializationQuery 主要是为不安全的反序列化定义的，所以聚焦在 GsonSerializability。</p>
+<p>这个 qll 比较短，大概做了几件事：</p>
+<p>1、定义了 gson 的反序列化方法 fromJson</p>
+<p>2、将代码中使用 fromJson 进行反序列化的类对应的类型提取并定义</p>
+<p>3、将第二步得到的类里面的 field 对应的类的类型提取定义</p>
+<p>4、上面得到的所有类的 field 提取并定义为 GsonInheritTaint 并继承 TaintInheritingContent。</p>
+<p>TaintInheritingContent 的官方注释如下：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line">/**</span><br><span class="line"> * A `Content` that should be implicitly regarded as tainted whenever an object with such `Content`</span><br><span class="line"> * is itself tainted.</span><br><span class="line"> *</span><br><span class="line"> * For example, if we had a type `class Container &#123; Contained field; &#125;`, then by default a tainted</span><br><span class="line"> * `Container` and a `Container` with a tainted `Contained` stored in its `field` are distinct.</span><br><span class="line"> *</span><br><span class="line"> * If `any(DataFlow::FieldContent fc | fc.getField().hasQualifiedName(&quot;Container&quot;, &quot;field&quot;))` was</span><br><span class="line"> * included in this type however, then a tainted `Container` would imply that its `field` is also</span><br><span class="line"> * tainted (but not vice versa).</span><br><span class="line"> *</span><br><span class="line"> * Note that `TaintTracking::Configuration` applies this behavior by default to array, collection,</span><br><span class="line"> * map-key and map-value content, so that e.g. a tainted `Map` is assumed to have tainted keys and values.</span><br><span class="line"> */</span><br></pre></td></tr></table></figure>
+<p>也就是将一个已经污染的对象的污染传递到其 field。</p>
+<p>所以上面的步骤就是将所有 gson 处理的类的实例对象和其变量联系起来，在通过 fromJson 污染连接到具体对象时，同时也将其中的 field 污染了。</p>
+<p>这样就很清晰了，只要仿照 gson 的处理对 fastjson 进行对应的建模就可以了。</p>
+<p>btw，在看 jackson 的处理时看到一个额外的类：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line">private class JacksonReadValueMethod extends Method, TaintPreservingCallable &#123;</span><br><span class="line">  JacksonReadValueMethod() &#123;</span><br><span class="line">    (</span><br><span class="line">      this.getDeclaringType().hasQualifiedName(&quot;com.fasterxml.jackson.databind&quot;, &quot;ObjectReader&quot;) or</span><br><span class="line">      this.getDeclaringType().hasQualifiedName(&quot;com.fasterxml.jackson.databind&quot;, &quot;ObjectMapper&quot;)</span><br><span class="line">    ) and</span><br><span class="line">    this.hasName([&quot;readValue&quot;, &quot;readValues&quot;])</span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line">  override predicate returnsTaintFrom(int arg) &#123; arg = 0 &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>从注释来看，returnsTaintFrom 是将一个方法的参数污染传播到方法的返回值，还有一个方法 transfersTaint 则是用来方法参数间的污染传播。看起来像是 yml 的 qll 表示。 </p>
+<p>所以结合一下最后构造得到的 qll 如下：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br></pre></td><td class="code"><pre><span class="line">FastjsonSerializability.qll</span><br><span class="line"></span><br><span class="line">import java</span><br><span class="line">private import semmle.code.java.Serializability</span><br><span class="line">private import semmle.code.java.dataflow.DataFlow</span><br><span class="line">private import semmle.code.java.dataflow.FlowSteps</span><br><span class="line"></span><br><span class="line">private class FastjsonParseMethod extends Method, TaintPreservingCallable &#123;</span><br><span class="line">    FastjsonParseMethod() &#123;</span><br><span class="line">    this.getDeclaringType().hasQualifiedName(&quot;com.alibaba.fastjson&quot;, &quot;JSON&quot;) or and</span><br><span class="line">    this.hasName([&quot;parse&quot;, &quot;parseObject&quot;])</span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line">  override predicate returnsTaintFrom(int arg) &#123; arg = 0 &#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">abstract class FastjsonDeserializableType extends Type &#123; &#125;</span><br><span class="line"></span><br><span class="line">private class ExplicitlyReadFastjsonDeserializableType extends FastjsonDeserializableType &#123;</span><br><span class="line">    ExplicitlyReadFastjsonDeserializableType() &#123;</span><br><span class="line">    exists(MethodCall ma |</span><br><span class="line">      ma.getMethod() instanceof FastjsonParseMethod and</span><br><span class="line">      usesType(ma.getArgument(1).getType(), this) and</span><br><span class="line">      not this instanceof TypeClass and</span><br><span class="line">      not this instanceof TypeObject</span><br><span class="line">    )</span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">private class FieldReferencedFastjsonDeserializableType extends FastjsonDeserializableType &#123;</span><br><span class="line">    FieldReferencedFastjsonDeserializableType() &#123;</span><br><span class="line">    exists(FastjsonDeserializableField f | usesType(f.getType(), this))</span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">private class FastjsonDeserializableField extends DeserializableField &#123;</span><br><span class="line">    FastjsonDeserializableField() &#123;</span><br><span class="line">    exists(FastjsonDeserializableType superType |</span><br><span class="line">      superType = this.getDeclaringType().getAnAncestor() and</span><br><span class="line">      not superType instanceof TypeObject and</span><br><span class="line">      superType.fromSource()</span><br><span class="line">    )</span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">private class FastjsonInheritTaint extends DataFlow::FieldContent, TaintInheritingContent &#123;</span><br><span class="line">    FastjsonInheritTaint() &#123; this.getField() instanceof FastjsonDeserializableField &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h2 id="mybatis"><a href="#mybatis" class="headerlink" title="mybatis"></a>mybatis</h2><p>基于上面 fastjson 的原理，mybatis 的漏报也就清晰了，是 fastjson 的反面，fastjson 是对象污染了但是里面的变量没有污染，而 mybatis 是变量污染了但整个对象不能看成被污染了，所以如果改一下代码：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">String s = source;</span><br><span class="line">Object o = new Object();</span><br><span class="line">o.setS(s);</span><br><span class="line">mapper.insert(o.s);</span><br></pre></td></tr></table></figure>
+<p>就可以正常传播了。当然这和 mybatis 的 update 和 insert 的本意操作就不同了。</p>
+<p>改进的思路也很清晰，像 fastjson 一样将变量和对象连接起来就行了。</p>
+<p>参考 gson 使用了 TaintInheritingContent 将污染关系从对象传递到变量，有没有一个反过来的方法从变量传播到对象呢？不过我没找到。</p>
+<p>回看之前分析数据流的时候，看到 DataFlowPrivate 里面定义了几个相关的 step 方法，其中有一个 storeStep 方法的注释是这样的：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">/**</span><br><span class="line"> * Holds if data can flow from `node1` to `node2` via an assignment to `f`.</span><br><span class="line"> * Thus, `node2` references an object with a field `f` that contains the</span><br><span class="line"> * value of `node1`.</span><br><span class="line"> */</span><br></pre></td></tr></table></figure>
+<p>看起来是对 setter 方法的处理，并且 node2 刚好表示这个对象，如果我们强行将符合这个条件的 node1 和 node2 污染关系加上就符合要求了。另外还要类似 gson 一样设置一个关联的条件，在 gson 是 fromJson 处理的类型，对应过来就是 mybatis update 和 insert 方法的参数类型，另外区分一下 mybatis xml 配置和注解配置的不同实现，这里可以直接参考官方关于 sql 注入部分代码。</p>
+<p>结合起来如下，以注解配置方式为例：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br></pre></td><td class="code"><pre><span class="line">import semmle.code.java.dataflow.FlowSources</span><br><span class="line">import semmle.code.java.dataflow.internal.DataFlowUtil</span><br><span class="line">import semmle.code.java.dataflow.internal.DataFlowPrivate</span><br><span class="line"></span><br><span class="line">private class IbatisInsertAnnotationType extends AnnotationType &#123;</span><br><span class="line">  IbatisInsertAnnotationType() &#123; this.hasQualifiedName(&quot;org.apache.ibatis.annotations&quot;, &quot;Insert&quot;) &#125;</span><br><span class="line">&#125;</span><br><span class="line">private class IbatisUpdateAnnotationType extends AnnotationType &#123;</span><br><span class="line">  IbatisUpdateAnnotationType() &#123; this.hasQualifiedName(&quot;org.apache.ibatis.annotations&quot;, &quot;Update&quot;) &#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">class IbatisSqlOperationAnnotation extends Annotation &#123;</span><br><span class="line">  IbatisSqlOperationAnnotation() &#123;</span><br><span class="line">    this.getType() instanceof IbatisInsertAnnotationType or</span><br><span class="line">    this.getType() instanceof IbatisUpdateAnnotationType</span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line">  string getSqlValue() &#123; result = this.getAStringArrayValue(&quot;value&quot;) &#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">class MyBatisSqlOperationAnnotationMethod extends Method &#123;</span><br><span class="line">  MyBatisSqlOperationAnnotationMethod() &#123;</span><br><span class="line">    this.getAnAnnotation() instanceof IbatisSqlOperationAnnotation</span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">private class MapperType extends RefType &#123;</span><br><span class="line">  MapperType() &#123;</span><br><span class="line">    exists(MethodCall mc |</span><br><span class="line">      mc.getMethod() instanceof MyBatisSqlOperationAnnotationMethod and</span><br><span class="line">      usesType(mc.getAnArgument().getType(), this) and</span><br><span class="line">      not this instanceof TypeClass and</span><br><span class="line">      not this instanceof TypeObject</span><br><span class="line">    )</span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">private class MapperArgsField extends Field &#123;</span><br><span class="line">  MapperArgsField() &#123;</span><br><span class="line">    exists(MapperType supertype |</span><br><span class="line">      supertype = this.getDeclaringType().getAnAncestor() and</span><br><span class="line">      not supertype instanceof TypeObject and</span><br><span class="line">      supertype.fromSource()</span><br><span class="line">    )</span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">private class MybatisAdditionalTaintStep extends AdditionalTaintStep &#123;</span><br><span class="line">  override predicate step(DataFlow::Node node1, DataFlow::Node node2) &#123;</span><br><span class="line">    exists(Content c |</span><br><span class="line">      storeStep(node1, c, node2) and c.(FieldContent).getField() instanceof MapperArgsField</span><br><span class="line">    )</span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>通过 AdditionalTaintStep 实现污染的传播。处理逻辑参考了 gson 的处理。</p>
+<h2 id="reference"><a href="#reference" class="headerlink" title="reference"></a>reference</h2><ul>
+<li><a target="_blank" rel="noopener" href="https://codeql.github.com/codeql-standard-libraries/java/">https://codeql.github.com/codeql-standard-libraries/java/</a></li>
+<li><a target="_blank" rel="noopener" href="https://codeql.github.com/docs/codeql-language-guides/customizing-library-models-for-java-and-kotlin/">https://codeql.github.com/docs/codeql-language-guides/customizing-library-models-for-java-and-kotlin/</a></li>
+</ul>
+
+  </div>
+</article>
+
+
+
+        
+          <div id="footer-post-container">
+  <div id="footer-post">
+
+    <div id="nav-footer" style="display: none">
+      <ul>
+        
+          <li><a href="/">Home</a></li>
+        
+          <li><a href="/about/">About</a></li>
+        
+          <li><a href="/archives/">Writing</a></li>
+        
+      </ul>
+    </div>
+
+    
+    
+      <div id="toc-footer" style="display: none">
+        <ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E8%83%8C%E6%99%AF"><span class="toc-number">1.</span> <span class="toc-text">背景</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#fastjson"><span class="toc-number">2.</span> <span class="toc-text">fastjson</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#mybatis"><span class="toc-number">3.</span> <span class="toc-text">mybatis</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#reference"><span class="toc-number">4.</span> <span class="toc-text">reference</span></a></li></ol>
+      </div>
+    
+
+    <div id="share-footer" style="display: none">
+      <ul>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://www.facebook.com/sharer.php?u=http://example.com/2025/04/22/codeql-%E6%94%B9%E8%BF%9B%E8%AE%A1%E5%88%92%E4%B8%80-fastjson-mybatis/"><i class="fab fa-facebook fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="https://twitter.com/share?url=http://example.com/2025/04/22/codeql-%E6%94%B9%E8%BF%9B%E8%AE%A1%E5%88%92%E4%B8%80-fastjson-mybatis/&text=codeql 改进计划一(fastjson&amp;mybatis)"><i class="fab fa-twitter fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://www.linkedin.com/shareArticle?url=http://example.com/2025/04/22/codeql-%E6%94%B9%E8%BF%9B%E8%AE%A1%E5%88%92%E4%B8%80-fastjson-mybatis/&title=codeql 改进计划一(fastjson&amp;mybatis)"><i class="fab fa-linkedin fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="https://pinterest.com/pin/create/bookmarklet/?url=http://example.com/2025/04/22/codeql-%E6%94%B9%E8%BF%9B%E8%AE%A1%E5%88%92%E4%B8%80-fastjson-mybatis/&is_video=false&description=codeql 改进计划一(fastjson&amp;mybatis)"><i class="fab fa-pinterest fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" href="mailto:?subject=codeql 改进计划一(fastjson&amp;mybatis)&body=Check out this article: http://example.com/2025/04/22/codeql-%E6%94%B9%E8%BF%9B%E8%AE%A1%E5%88%92%E4%B8%80-fastjson-mybatis/"><i class="fa-solid fa-envelope fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="https://getpocket.com/save?url=http://example.com/2025/04/22/codeql-%E6%94%B9%E8%BF%9B%E8%AE%A1%E5%88%92%E4%B8%80-fastjson-mybatis/&title=codeql 改进计划一(fastjson&amp;mybatis)"><i class="fab fa-get-pocket fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://reddit.com/submit?url=http://example.com/2025/04/22/codeql-%E6%94%B9%E8%BF%9B%E8%AE%A1%E5%88%92%E4%B8%80-fastjson-mybatis/&title=codeql 改进计划一(fastjson&amp;mybatis)"><i class="fab fa-reddit fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://www.stumbleupon.com/submit?url=http://example.com/2025/04/22/codeql-%E6%94%B9%E8%BF%9B%E8%AE%A1%E5%88%92%E4%B8%80-fastjson-mybatis/&title=codeql 改进计划一(fastjson&amp;mybatis)"><i class="fab fa-stumbleupon fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://digg.com/submit?url=http://example.com/2025/04/22/codeql-%E6%94%B9%E8%BF%9B%E8%AE%A1%E5%88%92%E4%B8%80-fastjson-mybatis/&title=codeql 改进计划一(fastjson&amp;mybatis)"><i class="fab fa-digg fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://www.tumblr.com/share/link?url=http://example.com/2025/04/22/codeql-%E6%94%B9%E8%BF%9B%E8%AE%A1%E5%88%92%E4%B8%80-fastjson-mybatis/&name=codeql 改进计划一(fastjson&amp;mybatis)&description="><i class="fab fa-tumblr fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="https://news.ycombinator.com/submitlink?u=http://example.com/2025/04/22/codeql-%E6%94%B9%E8%BF%9B%E8%AE%A1%E5%88%92%E4%B8%80-fastjson-mybatis/&t=codeql 改进计划一(fastjson&amp;mybatis)"><i class="fab fa-hacker-news fa-lg" aria-hidden="true"></i></a></li>
+</ul>
+
+    </div>
+
+    <div id="actions-footer">
+        <a id="menu" class="icon" href="#" onclick="$('#nav-footer').toggle();return false;"><i class="fa-solid fa-bars fa-lg" aria-hidden="true"></i> Menu</a>
+        
+          <a id="toc" class="icon" href="#" onclick="$('#toc-footer').toggle();return false;"><i class="fa-solid fa-list fa-lg" aria-hidden="true"></i> TOC</a>
+        
+        <a id="share" class="icon" href="#" onclick="$('#share-footer').toggle();return false;"><i class="fa-solid fa-share-alt fa-lg" aria-hidden="true"></i> Share</a>
+        <a id="top" style="display:none" class="icon" href="#" onclick="$('html, body').animate({ scrollTop: 0 }, 'fast');"><i class="fa-solid fa-chevron-up fa-lg" aria-hidden="true"></i> Top</a>
+    </div>
+
+  </div>
+</div>
+
+        
+        <footer id="footer">
+  <div class="footer-left">
+    Copyright &copy;
+    
+    
+    2024-2025
+    wude
+  </div>
+  <div class="footer-right">
+    <nav>
+      <ul>
+        <!--
+       --><li><a href="/">Home</a></li><!--
+     --><!--
+       --><li><a href="/about/">About</a></li><!--
+     --><!--
+       --><li><a href="/archives/">Writing</a></li><!--
+     -->
+      </ul>
+    </nav>
+  </div>
+</footer>
+
+    </div>
+    <!-- styles -->
+
+
+
+  <link rel="preload" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" crossorigin="anonymous" onload="this.onload=null;this.rel='stylesheet'"/>
+
+
+    <!-- jquery -->
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js" crossorigin="anonymous"></script>
+
+
+
+
+<!-- clipboard -->
+
+  
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/clipboard.js/2.0.7/clipboard.min.js" crossorigin="anonymous"></script>
+  
+  <script type="text/javascript">
+  $(function() {
+    // copy-btn HTML
+    var btn = "<span class=\"btn-copy tooltipped tooltipped-sw\" aria-label=\"Copy to clipboard!\">";
+    btn += '<i class="fa-regular fa-clone"></i>';
+    btn += '</span>';
+    // mount it!
+    $(".highlight table").before(btn);
+    var clip = new ClipboardJS('.btn-copy', {
+      text: function(trigger) {
+        return Array.from(trigger.nextElementSibling.querySelectorAll('.code')).reduce((str,it)=>str+it.innerText+'\n','')
+      }
+    });
+    clip.on('success', function(e) {
+      e.trigger.setAttribute('aria-label', "Copied!");
+      e.clearSelection();
+    })
+  })
+  </script>
+
+
+<script src="/js/main.js"></script>
+
+<!-- search -->
+
+<!-- Baidu Analytics -->
+
+<!-- Cloudflare Analytics -->
+
+<!-- Disqus Comments -->
+
+<!-- utterances Comments -->
+
+</body>
+</html>
